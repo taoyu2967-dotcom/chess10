@@ -1,0 +1,83 @@
+{
+ "n": 32,
+ "C_IN": 24,
+ "PCH": 160,
+ "N_POS": 100,
+ "POL": 16000,
+ "V3_FLOATS": 3300245,
+ "files": [
+  "encs.f32",
+  "pol_logits.f32",
+  "value_raw.f32",
+  "pol_logits_v2equiv.f32",
+  "value_raw_v2equiv.f32",
+  "pol_logits_ablate.f32",
+  "value_raw_ablate.f32",
+  "pol_logits_r160.f32",
+  "value_raw_r160.f32",
+  "wp2x_r160.f32",
+  "bp2x_r160.f32",
+  "plg_r160.f32",
+  "plb_r160.f32"
+ ],
+ "cases": {
+  "rand": {
+   "weights": "weights_v3_rand.bin",
+   "flags": [
+    3.0,
+    160.0,
+    1.0,
+    1.0,
+    2.0,
+    0.0
+   ],
+   "pol": "pol_logits.f32",
+   "raw": "value_raw.f32"
+  },
+  "v2equiv": {
+   "weights": "weights_v3_v2equiv.bin",
+   "flags": [
+    3.0,
+    160.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "pol": "pol_logits_v2equiv.f32",
+   "raw": "value_raw_v2equiv.f32"
+  },
+  "ablate": {
+   "weights": "weights_v3_ablate.bin",
+   "flags": [
+    3.0,
+    160.0,
+    0.0,
+    0.0,
+    2.0,
+    0.0
+   ],
+   "pol": "pol_logits_ablate.f32",
+   "raw": "value_raw_ablate.f32"
+  },
+  "r160": {
+   "weights": "../training/data/snapshots/r160.bin",
+   "flags": [
+    3.0,
+    160.0,
+    0.0,
+    1.0,
+    0.0,
+    1.0
+   ],
+   "pol": "pol_logits_r160.f32",
+   "raw": "value_raw_r160.f32",
+   "warm_tail": [
+    "wp2x_r160.f32",
+    "bp2x_r160.f32",
+    "plg_r160.f32",
+    "plb_r160.f32"
+   ]
+  }
+ }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "chess10-server",
+  "version": "1.0.0",
+  "description": "10x10 新国际象棋服务端 · Stockfish 风格搜索 + GPU 批量评估",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js && node test_game.js"
+  },
+  "dependencies": {
+    "opencl-raub": "^2.0.1",
+    "ws": "^8.18.0"
+  }
+}

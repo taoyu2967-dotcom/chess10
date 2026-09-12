@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国际象棋 · 实时胜率</title>
+<style>
+  :root {
+    --bg: #101418;
+    --bg-soft: #171d24;
+    --panel: #1d252e;
+    --panel-2: #232d38;
+    --border: #2c3946;
+    --text: #e8edf2;
+    --text-dim: #8fa1b3;
+    --white-side: #f4f7fa;
+    --black-side: #1a1f26;
+    --accent: #4fd1a5;
+    --accent-2: #3b82f6;
+    --danger: #f87171;
+    --light-sq: #f0d9b5;
+    --dark-sq: #b58863;
+    --sel: rgba(80, 209, 165, .55);
+    --move-dot: rgba(20, 26, 32, .35);
+    --last-sq: rgba(255, 213, 79, .45);
+    --check-sq: rgba(240, 84, 84, .65);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(79,209,165,.07), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 40px;
+  }
+
+  /* ---------- 头部 ---------- */
+  header { width: 100%; max-width: 1080px; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: .5px; display: flex; align-items: center; gap: 10px; }
+  header h1 .knight { font-size: 26px; }
+  .status-pill { font-size: 13px; padding: 6px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); }
+  .status-pill.live { color: var(--accent); border-color: rgba(79,209,165,.4); }
+  .status-pill.warn { color: var(--danger); border-color: rgba(248,113,113,.4); }
+
+  /* ---------- 胜率条 ---------- */
+  .winrate-bar-wrap {
+    width: 100%; max-width: 1080px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 18px 12px; margin-bottom: 14px;
+  }
+  .wr-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .wr-side { font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+  .wr-side strong { font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .wr-eval { font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .wr-eval b { color: var(--accent); }
+  .bar { position: relative; height: 22px; border-radius: 999px; overflow: hidden; display: flex; background: #0b0f13; box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
+  .bar .seg { height: 100%; transition: width .35s cubic-bezier(.3,.8,.3,1); }
+  .bar .seg.white { background: linear-gradient(180deg, #eef2f6, #c9d2dc); border-right: 1px solid rgba(0,0,0,.25); }
+  .bar .seg.black { background: linear-gradient(180deg, #2b333d, #14181d); border-left: 1px solid rgba(255,255,255,.12); }
+  .bar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--danger); opacity: .9; }
+  .bar .mid::after { content: ""; position: absolute; left: -3px; top: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .bar .mid::before { content: ""; position: absolute; left: -3px; bottom: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .wr-legend { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 7px; }
+
+  /* ---------- 主布局 ---------- */
+  .layout { display: flex; gap: 18px; width: 100%; max-width: 1080px; align-items: flex-start; flex-wrap: wrap; }
+  .board-col { flex: 0 0 auto; }
+  .panel { flex: 1 1 300px; min-width: 280px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ---------- 棋盘 ---------- */
+  .board-shell { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .board-wrap { position: relative; width: min(560px, 88vw); aspect-ratio: 1; }
+  #board {
+    display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    width: 100%; height: 100%;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    user-select: none; -webkit-user-select: none;
+  }
+  .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .sq.light { background: var(--light-sq); }
+  .sq.dark { background: var(--dark-sq); }
+  .sq.last { box-shadow: inset 0 0 0 999px var(--last-sq); }
+  .sq.sel { box-shadow: inset 0 0 0 999px var(--sel); }
+  .sq.check { box-shadow: inset 0 0 0 999px var(--check-sq); }
+  .sq.hint::after {
+    content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%;
+    background: var(--move-dot); pointer-events: none;
+  }
+  .sq.cap-hint::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%;
+    border: 5px solid var(--move-dot); pointer-events: none;
+  }
+  .piece {
+    font-size: min(7.6vw, 48px);
+    line-height: 1; z-index: 2;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+    transition: transform .08s ease;
+    pointer-events: none;
+  }
+  .piece.w { color: #fdfdfd; text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 0 1px #333; }
+  .piece.b { color: #1c2128; text-shadow: 0 1px 2px rgba(255,255,255,.18), 0 0 1px #fff; }
+  .coord { position: absolute; font-size: 10px; font-weight: 700; color: rgba(255,255,255,.85); text-shadow: 0 1px 1px rgba(0,0,0,.6); z-index: 3; pointer-events: none; }
+  .coord.file { bottom: 2px; right: 4px; }
+  .coord.rank { top: 2px; left: 4px; }
+  .sq.light .coord { color: var(--dark-sq); text-shadow: none; }
+  .sq.dark .coord { color: var(--light-sq); }
+
+  .engine-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4a5560; flex: 0 0 auto; }
+  .dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.busy { background: #eab308; box-shadow: 0 0 6px #eab308; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .4; } }
+
+  /* ---------- 面板卡片 ---------- */
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .card h2 { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 600; }
+
+  .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { font-size: 14px; color: var(--text); }
+  .row .sub { font-size: 12px; color: var(--text-dim); }
+
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+    padding: 9px 16px; border-radius: 10px; font-size: 14px; cursor: pointer;
+    transition: all .15s ease; font-family: inherit;
+  }
+  .btn:hover { background: #2b3948; border-color: #3a4c5e; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: linear-gradient(180deg, #2fbf8f, #25a67b); border-color: #2fbf8f; color: #06120d; font-weight: 700; }
+  .btn.primary:hover { background: linear-gradient(180deg, #3ad6a1, #2bb88a); }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 999px; background: var(--border); outline: none; margin: 10px 0 4px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #0d1512; box-shadow: 0 0 8px rgba(79,209,165,.5); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 2px solid #0d1512; cursor: pointer; }
+
+  .side-toggle { display: flex; background: var(--panel-2); border-radius: 10px; padding: 3px; gap: 3px; }
+  .side-toggle button { flex: 1; border: none; background: transparent; color: var(--text-dim); padding: 7px 0; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; transition: all .15s; }
+  .side-toggle button.active { background: var(--accent); color: #06120d; font-weight: 700; }
+
+  /* ---------- 走法历史 ---------- */
+  #moves { max-height: 210px; overflow-y: auto; font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; line-height: 1.9; }
+  #moves .mv-row { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 4px; padding: 0 6px; border-radius: 6px; }
+  #moves .mv-row:nth-child(odd) { background: rgba(255,255,255,.03); }
+  #moves .num { color: var(--text-dim); }
+  #moves .san { cursor: pointer; }
+  #moves .san:hover { color: var(--accent); }
+  #moves::-webkit-scrollbar { width: 6px; }
+  #moves::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .empty-hint { color: var(--text-dim); font-size: 13px; padding: 6px; }
+
+  /* ---------- 升变选择 ---------- */
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(3px); }
+  .modal-mask.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px; text-align: center; }
+  .modal h3 { margin-bottom: 4px; }
+  .modal p { font-size: 13px; color: var(--text-dim); margin-bottom: 14px; }
+  .promo-choices { display: flex; gap: 10px; justify-content: center; }
+  .promo-choice { font-size: 40px; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-2); cursor: pointer; transition: all .15s; }
+  .promo-choice:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+
+  /* ---------- 游戏结束 ---------- */
+  .gameover-banner { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(10,14,18,.78); border-radius: 8px; z-index: 10; backdrop-filter: blur(4px); }
+  .gameover-banner.show { display: flex; }
+  .go-box { text-align: center; }
+  .go-box h2 { font-size: 30px; margin-bottom: 6px; }
+  .go-box p { color: var(--text-dim); margin-bottom: 16px; }
+  .go-box .btn { font-size: 15px; padding: 11px 26px; }
+
+  footer { margin-top: 22px; font-size: 12px; color: #5c6b7a; text-align: center; }
+
+  @media (max-width: 900px) {
+    .layout { flex-direction: column; align-items: center; }
+    .board-wrap { width: min(560px, 92vw); }
+    .panel { width: 100%; min-width: 0; }
+    .piece { font-size: min(11vw, 48px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="knight">♞</span> 国际象棋 · 实时胜率</h1>
+  <span class="status-pill" id="statusPill">等待引擎启动…</span>
+</header>
+
+<!-- 胜率条 -->
+<div class="winrate-bar-wrap">
+  <div class="wr-top">
+    <div class="wr-side">⚪ 白方 <strong id="wrWhite">50.0%</strong></div>
+    <div class="wr-eval">评估 <b id="wrEval">0.00</b> <span id="wrEvalSide" style="color:var(--text-dim)">(白方视角)</span></div>
+    <div class="wr-side"><strong id="wrBlack">50.0%</strong> 黑方 ⚫</div>
+  </div>
+  <div class="bar">
+    <div class="seg white" id="segWhite" style="width:50%"></div>
+    <div class="seg black" id="segBlack" style="width:50%"></div>
+    <div class="mid"></div>
+  </div>
+  <div class="wr-legend">
+    <span id="wrWhiteLabel">白方胜率</span>
+    <span id="wrHint">AI 思考中实时刷新…</span>
+    <span id="wrBlackLabel">黑方胜率</span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 棋盘列 -->
+  <div class="board-col">
+    <div class="board-shell">
+      <div class="board-wrap">
+        <div id="board"></div>
+        <div class="gameover-banner" id="gameoverBanner">
+          <div class="go-box">
+            <h2 id="goTitle">对局结束</h2>
+            <p id="goSub"></p>
+            <button class="btn primary" onclick="newGame()">再来一局</button>
+          </div>
+        </div>
+      </div>
+      <div class="engine-status">
+        <span class="dot" id="engineDot"></span>
+        <span id="engineText">正在加载 Stockfish 引擎…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="panel">
+    <div class="card">
+      <h2>对局控制</h2>
+      <div class="row">
+        <label>你的棋色</label>
+        <div class="side-toggle" id="sideToggle">
+          <button class="active" data-side="w" onclick="setPlayerSide('w')">♔ 白方</button>
+          <button data-side="b" onclick="setPlayerSide('b')">♚ 黑方</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>AI 强度</label>
+          <div class="sub">难度 1（入门）– 20（大师）</div>
+        </div>
+        <strong id="levelVal" style="color:var(--accent); font-size:18px">10</strong>
+      </div>
+      <input type="range" id="levelRange" min="1" max="20" value="10" oninput="levelVal.textContent=this.value; onLevelChange();">
+      <div class="btn-group" style="margin-top:12px">
+        <button class="btn primary" onclick="newGame()">新游戏</button>
+        <button class="btn" onclick="undoMove()" id="undoBtn">悔棋</button>
+        <button class="btn ghost" onclick="flipBoard()">翻转棋盘</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>走法记录</h2>
+      <div id="moves"><div class="empty-hint">对局尚未开始 — 点击棋盘上的棋子开始</div></div>
+    </div>
+  </div>
+</div>
+
+<footer>引擎：Stockfish 10 · 规则库：chess.js · 胜率基于引擎局面评估实时换算</footer>
+
+<!-- 升变选择弹窗 -->
+<div class="modal-mask" id="promoMask">
+  <div class="modal">
+    <h3>兵升变为？</h3>
+    <p>选择一个棋子</p>
+    <div class="promo-choices" id="promoChoices"></div>
+  </div>
+</div>
+
+<script type="module">
+import { Chess } from './lib/chess.min.js';
+"use strict";
+
+/* ================= 状态 ================= */
+const game = new Chess();
+let playerSide = 'w';        // 玩家执白
+let flipped = false;         // 棋盘是否翻转
+let engine = null;           // Stockfish worker
+let engineReady = false;
+let thinking = false;        // AI 是否正在思考
+let gameOver = false;
+let selected = null;         // 选中的格子 {r, c}（棋盘数组坐标 0=第8行）
+let lastMove = null;         // {from, to}
+let pendingPromotion = null; // {from, to}
+let aiMoveTimer = null;
+
+const LEVELS = { 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10, 11:11, 12:12, 13:13, 14:14, 15:15, 16:16, 17:17, 18:18, 19:19, 20:20 };
+
+/* ================= DOM ================= */
+const $ = id => document.getElementById(id);
+const boardEl = $('board');
+const statusPill = $('statusPill');
+const segWhite = $('segWhite'), segBlack = $('segBlack');
+const wrWhite = $('wrWhite'), wrBlack = $('wrBlack'), wrEval = $('wrEval');
+const movesEl = $('moves');
+const engineDot = $('engineDot'), engineText = $('engineText');
+const gameoverBanner = $('gameoverBanner');
+const promoMask = $('promoMask'), promoChoices = $('promoChoices');
+
+const PIECE_CHARS = {
+  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
+};
+const FILES = 'abcdefgh';
+
+/* ================= 引擎启动 ================= */
+function initEngine() {
+  try {
+    engine = new Worker('lib/stockfish.js');
+  } catch (e) {
+    engineText.textContent = '引擎加载失败：' + e.message + '（请通过本地服务器打开，如 python -m http.server）';
+    engineDot.classList.add('warn');
+    return;
+  }
+  engine.onmessage = onEngineMsg;
+  engine.onerror = e => {
+    engineText.textContent = '引擎错误：' + (e.message || '未知');
+    engineDot.className = 'dot';
+  };
+  engine.postMessage('uci');
+}
+
+let engineBooted = false;
+function onEngineMsg(e) {
+  const line = String(e.data).trim();
+  if (!engineBooted) {
+    if (line.includes('uciok')) {
+      engineBooted = true;
+      engineReady = true;
+      // 注意：不要发送 setoption name Threads —— asm.js 版 Stockfish 设置后会卡死（默认即 1/16）
+      engineDot.className = 'dot ok';
+      engineText.textContent = 'Stockfish 已就绪';
+      updateStatus();
+      if (playerSide === 'b') aiMove();   // 玩家执黑，AI 先行
+    } else if (line.includes('Stockfish')) {
+      engineText.textContent = 'Stockfish ' + line.split(' ').slice(0, 4).join(' ');
+    }
+    return;
+  }
+  if (line.startsWith('info')) parseInfo(line);
+  else if (line.startsWith('bestmove')) onBestMove(line);
+}
+
+/* ================= 实时胜率 ================= */
+let lastCp = 0;      // 白方视角 centipawn
+let lastMate = null; // {side:'w'|'b', moves:n}
+
+function cpToWinrate(cp) {
+  // lichess 的评估→胜率换算
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+}
+
+function updateWinrate() {
+  let whiteWR;
+  if (lastMate) {
+    whiteWR = lastMate.side === 'w' ? 100 : 0;
+  } else {
+    whiteWR = cpToWinrate(lastCp);
+  }
+  whiteWR = Math.max(0, Math.min(100, whiteWR));
+  const blackWR = 100 - whiteWR;
+  segWhite.style.width = whiteWR + '%';
+  segBlack.style.width = blackWR + '%';
+  wrWhite.textContent = whiteWR.toFixed(1) + '%';
+  wrBlack.textContent = blackWR.toFixed(1) + '%';
+  if (lastMate) {
+    const n = lastMate.moves;
+    wrEval.textContent = '#' + n + '（' + (lastMate.side === 'w' ? '白' : '黑') + '将杀）';
+    $('wrEvalSide').textContent = '';
+  } else {
+    const s = lastCp >= 0 ? '+' : '';
+    wrEval.textContent = s + (lastCp / 100).toFixed(2);
+    $('wrEvalSide').textContent = '（白方视角）';
+  }
+}
+
+function parseInfo(line) {
+  // info depth 12 ... score cp 35 ... 或 score mate 3
+  const scoreMatch = line.match(/\bscore (cp|mate) (-?\d+)/);
+  if (!scoreMatch) return;
+  const [_, type, val] = scoreMatch;
+  const n = parseInt(val, 10);
+  // score 是相对于"当前行棋方"的；需要转成白方视角
+  const whiteToMove = game.turn() === 'w';
+  if (type === 'cp') {
+    lastCp = whiteToMove ? n : -n;
+    lastMate = null;
+  } else {
+    lastMate = { side: whiteToMove ? 'w' : 'b', moves: n };
+  }
+  updateWinrate();
+}
+
+/* ================= 棋盘渲染 ================= */
+function renderBoard() {
+  boardEl.innerHTML = '';
+  const board = game.board(); // board[0]=第8行
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const sq = document.createElement('div');
+      sq.className = 'sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      const piece = board[r][c];
+      const file = FILES[c], rank = 8 - r;
+      const isLast = lastMove && lastMove.from === file + rank;
+      const isLastTo = lastMove && lastMove.to === file + rank;
+      if (isLast || isLastTo) sq.classList.add('last');
+      if (selected && selected.r === r && selected.c === c) sq.classList.add('sel');
+      if (game.in_check() && piece && piece.type === 'k' && piece.color === game.turn()) {
+        sq.classList.add('check');
+      }
+      if (piece) {
+        const span = document.createElement('span');
+        span.className = 'piece ' + piece.color;
+        span.textContent = PIECE_CHARS[piece.color][piece.type];
+        sq.appendChild(span);
+      }
+      if (c === 0) {
+        const co = document.createElement('span');
+        co.className = 'coord rank'; co.textContent = rank; sq.appendChild(co);
+      }
+      if (r === 7) {
+        const co = document.createElement('span');
+        co.className = 'coord file'; co.textContent = file; sq.appendChild(co);
+      }
+      // 高亮可行走点
+      if (selected) {
+        const legal = game.moves({ square: selected.file + selected.rank, verbose: true });
+        const target = file + rank;
+        const mv = legal.find(m => m.to === target);
+        if (mv) {
+          if (mv.captured) sq.classList.add('cap-hint');
+          else sq.classList.add('hint');
+        }
+      }
+      sq.dataset.file = file;
+      sq.dataset.rank = rank;
+      sq.addEventListener('click', () => onSquareClick(file, rank));
+      boardEl.appendChild(sq);
+    }
+  }
+  // 翻转
+  if (flipped) {
+    const children = Array.from(boardEl.children).reverse();
+    boardEl.innerHTML = '';
+    children.forEach(ch => boardEl.appendChild(ch));
+  }
+  // 按钮状态
+  $('undoBtn').disabled = game.history().length === 0 || thinking || gameOver;
+}
+
+/* ================= 交互 ================= */
+function onSquareClick(file, rank) {
+  if (thinking || gameOver || !engineReady) return;
+  const board = game.board();
+  const r = 8 - rank, c = FILES.indexOf(file);
+  const piece = board[r][c];
+
+  if (selected) {
+    // 尝试走子
+    const moves = game.moves({ square: selected.file + selected.rank, verbose: true });
+    const mv = moves.find(m => m.to === file + rank);
+    if (mv) {
+      if (mv.promotion) {
+        pendingPromotion = { from: selected.file + selected.rank, to: file + rank };
+        showPromo(mv.color);
+        return;
+      }
+      doMove(selected.file + selected.rank, file + rank, null);
+      return;
+    }
+    // 点击另一个己方棋子则切换选中
+    if (piece && piece.color === game.turn()) {
+      selected = { file, rank, r, c };
+    } else {
+      selected = null;
+    }
+  } else {
+    if (piece && piece.color === game.turn()) {
+      selected = { file, rank, r, c };
+    }
+  }
+  renderBoard();
+}
+
+function doMove(from, to, promotion) {
+  let mv;
+  try {
+    mv = game.move({ from, to, promotion: promotion || undefined });
+  } catch (e) { return; }
+  if (!mv) return;
+  selected = null;
+  lastMove = { from, to };
+  renderBoard();
+  renderMoves();
+  if (game.game_over()) { endGame(); return; }
+  // 玩家走完 → AI 思考
+  updateStatus();
+  aiMove();
+}
+
+/* ================= AI ================= */
+function aiMove() {
+  if (!engineReady || thinking || gameOver) return;
+  if (game.turn() === playerSide) return;
+  thinking = true;
+  engineDot.className = 'dot busy';
+  engineText.textContent = 'AI 思考中…';
+  statusPill.textContent = 'AI 思考中…';
+  statusPill.className = 'status-pill live';
+  engine.postMessage('position fen ' + game.fen());
+  const depth = LEVELS[parseInt($('levelRange').value, 10)];
+  engine.postMessage('go depth ' + depth);
+  // 兜底：若引擎 60s 未响应（极端情况）则不卡死
+  clearTimeout(aiMoveTimer);
+  aiMoveTimer = setTimeout(() => {
+    if (thinking) { thinking = false; engineDot.className = 'dot ok'; engineText.textContent = '引擎超时，请重试'; }
+  }, 60000);
+}
+
+function onBestMove(line) {
+  if (!thinking) return;
+  clearTimeout(aiMoveTimer);
+  const m = line.match(/bestmove\s+(\w+)/);
+  if (!m || m[1] === '(none)') {
+    thinking = false;
+    engineDot.className = 'dot ok';
+    if (!game.game_over()) endGame();
+    return;
+  }
+  const uci = m[1];
+  const from = uci.slice(0, 2), to = uci.slice(2, 4);
+  const promotion = uci.length > 4 ? uci.slice(4, 5) : undefined;
+  thinking = false;
+  const mv = game.move({ from, to, promotion });
+  if (!mv) {
+    engineText.textContent = '引擎返回了非法着法';
+    engineDot.className = 'dot ok';
+    return;
+  }
+  lastMove = { from, to };
+  renderBoard();
+  renderMoves();
+  // AI 走完后：用浅层评估给玩家看当前胜率
+  quickEval();
+  if (game.game_over()) { endGame(); return; }
+  statusPill.textContent = '轮到你了（' + (playerSide === 'w' ? '白方' : '黑方') + '）';
+  statusPill.className = 'status-pill';
+  engineDot.className = 'dot ok';
+  engineText.textContent = 'Stockfish 已就绪';
+}
+
+/* 浅层快速评估（AI 走完后更新玩家视角的胜率） */
+function quickEval() {
+  if (!engineReady) return;
+  engine.postMessage('position fen ' + game.fen());
+  engine.postMessage('go depth 10');
+}
+
+/* ================= 局面状态 ================= */
+function updateStatus() {
+  if (game.turn() === playerSide) {
+    statusPill.textContent = '轮到你了（' + (playerSide === 'w' ? '白方' : '黑方') + '）';
+    statusPill.className = 'status-pill';
+  } else {
+    statusPill.textContent = 'AI 思考中…';
+    statusPill.className = 'status-pill live';
+  }
+}
+
+function endGame() {
+  gameOver = true;
+  thinking = false;
+  engineDot.className = 'dot ok';
+  engineText.textContent = 'Stockfish 已就绪';
+  let title = '', sub = '';
+  if (game.in_checkmate()) {
+    const winner = game.turn() === 'w' ? '黑方' : '白方';
+    title = winner + '胜出 ♛';
+    sub = game.in_check() ? '将杀！' : '将杀！';
+    lastMate = { side: game.turn() === 'w' ? 'b' : 'w', moves: 0 };
+    updateWinrate();
+  } else if (game.in_stalemate()) {
+    title = '逼和';
+    sub = '无子可动，和棋';
+  } else if (game.in_threefold_repetition()) {
+    title = '和棋';
+    sub = '三次重复局面';
+  } else if (game.insufficient_material()) {
+    title = '和棋';
+    sub = '子力不足';
+  } else if (game.in_draw()) {
+    title = '和棋';
+    sub = '50 回合规则';
+  }
+  $('goTitle').textContent = title;
+  $('goSub').textContent = sub;
+  gameoverBanner.classList.add('show');
+  statusPill.textContent = title;
+  statusPill.className = 'status-pill warn';
+  renderBoard();
+}
+
+/* ================= 走法记录 ================= */
+function renderMoves() {
+  const hist = game.history();
+  movesEl.innerHTML = '';
+  if (hist.length === 0) {
+    movesEl.innerHTML = '<div class="empty-hint">对局尚未开始</div>';
+    return;
+  }
+  const rows = [];
+  for (let i = 0; i < hist.length; i += 2) {
+    const num = i / 2 + 1;
+    const w = hist[i];
+    const b = hist[i + 1] || '';
+    const row = document.createElement('div');
+    row.className = 'mv-row';
+    const nEl = document.createElement('span');
+    nEl.className = 'num'; nEl.textContent = num + '.';
+    row.appendChild(nEl);
+    row.appendChild(makeSanEl(w, i));
+    if (b) row.appendChild(makeSanEl(b, i + 1));
+    rows.push(row);
+  }
+  rows.forEach(r => movesEl.appendChild(r));
+  movesEl.scrollTop = movesEl.scrollHeight;
+}
+
+function makeSanEl(san, idx) {
+  const el = document.createElement('span');
+  el.className = 'san';
+  el.textContent = san;
+  el.title = '回放到此步';
+  el.addEventListener('click', () => replayTo(idx + 1));
+  return el;
+}
+
+/* ================= 回放 / 悔棋 ================= */
+function replayTo(plyCount) {
+  if (thinking) return;
+  const hist = game.history();
+  if (plyCount < 1 || plyCount > hist.length) return;
+  const mvs = hist.slice(0, plyCount);
+  game.reset();
+  for (const s of mvs) game.move(s);
+  const mv = game.history({ verbose: true })[mvs.length - 1];
+  lastMove = mv ? { from: mv.from, to: mv.to } : null;
+  gameOver = game.game_over();
+  if (gameOver) gameoverBanner.classList.remove('show');
+  selected = null;
+  renderBoard();
+  renderMoves();
+  quickEval();
+  updateStatus();
+}
+
+function undoMove() {
+  if (thinking || gameOver) return;
+  if (game.history().length === 0) return;
+  game.undo();
+  if (game.turn() !== playerSide && game.history().length > 0) {
+    game.undo(); // 撤掉 AI 的一步
+  }
+  selected = null;
+  gameOver = false;
+  gameoverBanner.classList.remove('show');
+  lastMove = null;
+  renderBoard();
+  renderMoves();
+  quickEval();
+  updateStatus();
+}
+
+/* ================= 设置 ================= */
+function setPlayerSide(side) {
+  if (thinking) return;
+  playerSide = side;
+  document.querySelectorAll('#sideToggle button').forEach(b => b.classList.toggle('active', b.dataset.side === side));
+  newGame();
+}
+
+function onLevelChange() {
+  // 强度只影响后续 AI 搜索，直接生效
+  if (engineReady && !thinking) {
+    engineDot.className = 'dot ok';
+    engineText.textContent = 'Stockfish 已就绪（深度 ' + LEVELS[parseInt($('levelRange').value, 10)] + '）';
+  }
+}
+
+function flipBoard() {
+  flipped = !flipped;
+  renderBoard();
+}
+
+function newGame() {
+  if (thinking) {
+    // 中断 AI 思考：给 worker 发 stop
+    try { engine && engine.postMessage('stop'); } catch (e) {}
+    thinking = false;
+  }
+  game.reset();
+  selected = null;
+  lastMove = null;
+  gameOver = false;
+  gameoverBanner.classList.remove('show');
+  lastCp = 0; lastMate = null;
+  updateWinrate();
+  $('wrHint').textContent = '对局开始';
+  renderBoard();
+  renderMoves();
+  if (engineReady) {
+    if (playerSide === 'b') aiMove();
+    else {
+      statusPill.textContent = '轮到你了（白方）';
+      statusPill.className = 'status-pill';
+      quickEval();
+    }
+  } else {
+    statusPill.textContent = '等待引擎启动…';
+  }
+}
+
+/* ================= 升变 ================= */
+function showPromo(color) {
+  const pieces = ['q', 'r', 'b', 'n'];
+  const labels = { q: '后', r: '车', b: '象', n: '马' };
+  promoChoices.innerHTML = '';
+  pieces.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'promo-choice';
+    btn.textContent = PIECE_CHARS[color][p];
+    btn.title = labels[p];
+    btn.addEventListener('click', () => {
+      promoMask.classList.remove('show');
+      if (pendingPromotion) {
+        doMove(pendingPromotion.from, pendingPromotion.to, p);
+        pendingPromotion = null;
+      }
+    });
+    promoChoices.appendChild(btn);
+  });
+  promoMask.classList.add('show');
+}
+
+/* ================= 初始化 ================= */
+initEngine();
+newGame();
+
+/* 模块作用域：暴露给内联 onclick 处理器 */
+window.newGame = newGame;
+window.setPlayerSide = setPlayerSide;
+window.onLevelChange = onLevelChange;
+window.flipBoard = flipBoard;
+window.undoMove = undoMove;
+</script>
+</body>
+</html>

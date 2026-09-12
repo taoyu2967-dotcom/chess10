@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>chess10 损失地貌 3D</title>
+<style>
+  :root { --bg:#0f1419; --panel:#1a222b; --border:#2a3743; --text:#e6edf3; --dim:#8aa0b4; --accent:#4fd1a5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI","Microsoft YaHei",system-ui,sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { padding: 12px 18px 8px; }
+  h1 { font-size: 18px; }
+  #meta { color: var(--dim); font-size: 12.5px; margin-top: 3px; }
+  #view { flex: 1; position: relative; border-top: 1px solid var(--border); }
+  canvas { display: block; }
+  #hud { position: absolute; left: 12px; bottom: 10px; background: rgba(15,20,25,.82); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--dim); line-height: 1.8; max-width: 360px; }
+  #hud b { color: var(--text); }
+  #legend { position: absolute; right: 12px; top: 10px; background: rgba(15,20,25,.82); border: 1px solid var(--border); border-radius: 10px; padding: 8px; font-size: 11px; color: var(--dim); text-align: right; }
+  #legend .bar { width: 14px; height: 160px; border-radius: 4px; margin: 6px auto 2px; background: linear-gradient(to top, #0f1e5a, #2078a0, #50be8c, #e6c850, #dc503c); }
+  #toggle { position: absolute; right: 12px; bottom: 10px; }
+  #toggle button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+  #toggle button:hover { border-color: var(--accent); }
+  .err { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>chess10 神经网络损失地貌 · 3D 交互视图</h1>
+  <div id="meta"></div>
+</header>
+<div id="view"><div class="err" id="err" style="display:none"></div></div>
+<div id="hud">
+  <b>操作</b>：拖拽旋转 · 滚轮缩放 · 右键平移<br>
+  <span id="hudBody"></span>
+</div>
+<div id="legend">损失 高<br><div class="bar"></div>低</div>
+<div id="toggle">
+  <button id="btnWire">线框</button>
+  <button id="btnRotate">自动旋转</button>
+  <button id="btnReset">复位视角</button>
+</div>
+<script id="payload" type="application/json">{"kind": "li", "meta": {"ref": "r136", "samples": 3000, "seed": 20260901, "range": [-1.0, 1.0], "lossDef": "total = 1.3*MSE(value, arctanh z) + 2.0*CE(policy)", "method": "Li et al. 2018 filter-normalized random directions（dim≥2 逐输出滤波归一，1-D 整张量归一）", "note": "中心(0,0)=参考点 θ*。全空间驻点(全局最小/真实鞍点)不可见于 2D 切片；标注为切片局部特征。"}, "alphas": [-1.0, -0.95, -0.9, -0.85, -0.8, -0.75, -0.7, -0.65, -0.6, -0.55, -0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.05, 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0], "betas": [-1.0, -0.95, -0.9, -0.85, -0.8, -0.75, -0.7, -0.65, -0.6, -0.55, -0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.05, 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0], "gridTotal": [[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 109.74297, 96.80201, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 97.92412, 78.38131, 67.2903, 63.71238, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 101.87933, 71.22597, 51.90602, 41.30298, 40.01694, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 83.55704, 50.20044, 29.63241, 19.30191, 23.57458, 39.21375, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 73.28581, 41.05017, 18.2604, 8.02498, 17.46643, 34.03306, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 126.09733, 86.76483, 57.86576, 34.75649, 22.19578, 26.15647, 39.8587, 101.90561, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]], "gridValue": [[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.60652, 0.36433, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.88255, 0.43659, 0.24172, 0.21754, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1.31595, 0.66671, 0.3017, 0.15253, 0.14165, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1.0146, 0.48121, 0.18674, 0.08005, 0.087, 0.1406, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.75244, 0.33716, 0.11819, 0.0491, 0.06484, 0.10676, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.77211, 0.53416, 0.24987, 0.11857, 0.08592, 0.09815, 0.11842, 1.28039, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]], "gridPolicy": [[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 54.47724, 48.16419, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 48.38841, 38.90687, 33.48803, 31.71479, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 50.08429, 35.17963, 25.7569, 20.55234, 19.9164, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 41.11903, 24.78743, 14.69483, 9.59892, 11.73074, 19.51549, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 36.15382, 20.30593, 9.05338, 3.98057, 8.69107, 16.94714, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 62.5468, 43.03521, 28.77046, 17.30117, 11.04204, 13.01443, 19.85238, 50.12055, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]], "center": 8.02498, "annotations": [{"type": "min", "a": 0.0, "b": 0.0, "loss": 8.02498}, {"type": "saddle", "a": 0.1, "b": 0.0, "loss": 34.03306}, {"type": "saddle", "a": 0.0, "b": 0.05, "loss": 22.19578}, {"type": "max", "a": 0.15, "b": 0.05, "loss": 101.90561}], "sharpness": [{"r": 0.1, "mean": null, "max": 63.20099}, {"r": 0.2, "mean": null, "max": null}, {"r": 0.3, "mean": null, "max": null}, {"r": 0.5, "mean": null, "max": null}, {"r": 0.75, "mean": null, "max": null}, {"r": 1.0, "mean": null, "max": null}]}</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+"use strict";
+(function () {
+  const err = document.getElementById('err');
+  function fail(msg) { err.textContent = msg; err.style.display = 'flex'; }
+  if (typeof THREE === 'undefined') { fail('Three.js 加载失败（需要联网 CDN）'); return; }
+
+  const D = JSON.parse(document.getElementById('payload').textContent);
+  const KIND = D.kind || 'interp';
+  document.title = KIND === 'li'
+    ? 'chess10 损失地貌 3D · Li随机切片 @' + D.meta.ref
+    : 'chess10 损失地貌 3D · ' + D.meta.snapA + ' → ' + D.meta.snapB;
+  document.getElementById('meta').textContent = KIND === 'li'
+    ? `θ*=${D.meta.ref} · Li et al. 2018 逐滤波归一化随机方向切片 · 网格 ${D.betas.length}×${D.alphas.length} · ${D.meta.samples} 样本 · ${D.meta.lossDef}`
+    : `A=${D.meta.snapA}（α=0）→ B=${D.meta.snapB}（α=1） · 网格 ${D.betas.length}×${D.alphas.length} · ${D.meta.samples} 样本 · ${D.meta.lossDef}`;
+  if (KIND === 'li') {
+    const rows = (D.sharpness || []).map(s => `r=${s.r}: 平均+${Number(s.mean).toFixed(1)} / 峰值+${Number(s.max).toFixed(1)}`).join('<br>');
+    document.getElementById('hudBody').innerHTML =
+      `<b>方法</b>：Li et al. 2018（归一化层不扰动）<br>` +
+      `<b>中心 θ*</b>=切片损失极小（蓝球）<br>` +
+      `<b>切片特征</b>：绿=局部极小 · 橙=鞍点候选 · 红=局部极大<br>` +
+      `<b>锐度（离中心损失增量）</b>：<br>${rows}<br>` +
+      `<span style="color:#6a7a88">注：2.8M 维空间的驻点不可见于 2D 切片；此处为切片局部特征</span>`;
+  } else {
+    document.getElementById('hudBody').innerHTML =
+      `<b>绿色轨迹线</b>：训练真实路径（β=0 截面，A→B）<br>` +
+      `<b>球标记</b>：A=起点快照 · B=终点快照 · 谷底=损失最低点`;
+  }
+
+  const G = D.gridTotal, al = D.alphas, be = D.betas;
+  // null（溢出区）填充：Li 版用 gMax 立墙呈现悬崖；插值版沿用行末延伸
+  let gMin = Infinity, gMax = -Infinity;
+  for (const row of G) for (const v of row) { if (v == null) continue; gMin = Math.min(gMin, v); gMax = Math.max(gMax, v); }
+  for (let j = 0; j < G.length; j++) {
+    let last = G[j][0];
+    for (let i = 0; i < G[j].length; i++) {
+      if (G[j][i] == null) G[j][i] = KIND === 'li' ? gMax : last; else last = G[j][i];
+    }
+  }
+  const span = gMax - gMin || 1;
+
+  // 双线性细化 3×（121×75 网格，视觉平滑）
+  const SUB = 3, NA = (al.length - 1) * SUB + 1, NB = (be.length - 1) * SUB + 1;
+  function sample(a01, b01) {   // a01/b01 ∈ [0,1]
+    const fa = a01 * (al.length - 1), fb = b01 * (be.length - 1);
+    const ia = Math.min(al.length - 2, fa | 0), ib = Math.min(be.length - 2, fb | 0);
+    const ta = fa - ia, tb = fb - ib;
+    const v00 = G[ib][ia], v01 = G[ib][ia + 1], v10 = G[ib + 1][ia], v11 = G[ib + 1][ia + 1];
+    return (v00 * (1 - ta) + v01 * ta) * (1 - tb) + (v10 * (1 - ta) + v11 * ta) * tb;
+  }
+  function cmap(v) {
+    const t = Math.max(0, Math.min(1, (v - gMin) / span));
+    const stops = [[15,30,90],[32,120,160],[80,190,140],[230,200,80],[220,80,60]];
+    const s = t * (stops.length - 1), i = Math.min(stops.length - 2, s | 0), f = s - i;
+    const c0 = stops[i], c1 = stops[i + 1];
+    return [c0[0] + (c1[0] - c0[0]) * f, c0[1] + (c1[1] - c0[1]) * f, c0[2] + (c1[2] - c0[2]) * f];
+  }
+
+  // ---------- 场景 ----------
+  const W = () => document.getElementById('view').clientWidth, H = () => document.getElementById('view').clientHeight;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(W(), H());
+  document.getElementById('view').appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0f14);
+  scene.fog = new THREE.Fog(0x0b0f14, 80, 260);
+  const camera = new THREE.PerspectiveCamera(50, W() / H(), 0.1, 1000);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.autoRotate = true; controls.autoRotateSpeed = 1.1;
+
+  // 尺寸映射：x=α ∈ [-60,60]，z=β ∈ [-40,40]，y=损失高度 [0,42]
+  const SX = 120, SZ = 80, SY = 42;
+  const X = a01 => (a01 - 0.5) * SX;
+  const Z = b01 => (b01 - 0.5) * SZ;
+  const Y = v => (v - gMin) / span * SY;
+
+  // 表面网格
+  const geo = new THREE.PlaneGeometry(SX, SZ, NA - 1, NB - 1);
+  geo.rotateX(-Math.PI / 2);   // 平面躺平：x→x, 原y→z
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  let k = 0;
+  for (let jb = 0; jb < NB; jb++) {
+    for (let ia = 0; ia < NA; ia++) {
+      const a01 = ia / (NA - 1), b01 = jb / (NB - 1);
+      const v = sample(a01, b01);
+      pos.setZ(k, -Z(b01));          // PlaneGeometry 的行序对应 -z 方向
+      pos.setY(k, Y(v));
+      const [r, g, b] = cmap(v);
+      colors[k * 3] = r / 255; colors[k * 3 + 1] = g / 255; colors[k * 3 + 2] = b / 255;
+      k++;
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 55, specular: 0x333333, side: THREE.DoubleSide });
+  const surf = new THREE.Mesh(geo, mat);
+  scene.add(surf);
+  const wire = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: 0x4fd1a5, wireframe: true, transparent: true, opacity: 0.0 }));
+  scene.add(wire);
+
+  // 光照
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.65); dl.position.set(60, 90, 40); scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x88aaff, 0.25); dl2.position.set(-50, 40, -60); scene.add(dl2);
+
+  // 训练轨迹线（仅插值版：β=0 截面沿 α 扫描）
+  if (KIND !== 'li') {
+    const trajPts = D.curve.map(p => new THREE.Vector3(X((p.a - al[0]) / (al[al.length - 1] - al[0])), Y(p.total) + 0.35, 0));
+    const trajGeo = new THREE.BufferGeometry().setFromPoints(trajPts);
+    scene.add(new THREE.Line(trajGeo, new THREE.LineBasicMaterial({ color: 0x4fd1a5, linewidth: 2 })));
+    // 轨迹投影阴影线（贴地）
+    const shadowPts = trajPts.map(p => new THREE.Vector3(p.x, 0.05, p.z));
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(shadowPts), new THREE.LineBasicMaterial({ color: 0x2a5a4a, transparent: true, opacity: 0.7 })));
+  }
+
+  // 标记球（通用）：任意 (a01,b01) 落点
+  function markerAt(a01, b01, color, label, lift = 0.4) {
+    const v = sample(a01, b01);
+    const g = new THREE.SphereGeometry(1.35, 20, 20);
+    const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.45 }));
+    m.position.set(X(a01), Y(v) + lift, (0.5 - b01) * SZ);
+    scene.add(m);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(label, color), transparent: true }));
+    sprite.scale.set(11, 5.5, 1);
+    sprite.position.set(m.position.x, m.position.y + 5, m.position.z);
+    scene.add(sprite);
+    return m;
+  }
+  function makeLabel(text, color) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const ctx = cv.getContext('2d');
+    ctx.font = 'bold 64px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#' + new THREE.Color(color).getHexString();
+    ctx.fillText(text, 128, 64);
+    const t = new THREE.CanvasTexture(cv); return t;
+  }
+  const a0 = (0 - al[0]) / (al[al.length - 1] - al[0]);
+  const a1 = (1 - al[0]) / (al[al.length - 1] - al[0]);
+  const minP = D.curve ? D.curve.reduce((m, p) => p.total < m.total ? p : m, D.curve[0]) : null;
+  const am = minP ? (minP.a - al[0]) / (al[al.length - 1] - al[0]) : 0;
+  if (KIND === 'li') {
+    // θ* 中心 + 切片局部特征标注（min=绿 / saddle=橙 / max=红）
+    markerAt(0.5, 0.5, 0x5aa7e8, 'θ*=' + D.meta.ref + ' (切片极小)');
+    const A2 = (a) => (a - al[0]) / (al[al.length - 1] - al[0]);
+    const B2 = (b) => (b - be[0]) / (be[be.length - 1] - be[0]);
+    const COLS = { min: 0x4fd1a5, saddle: 0xe8963c, max: 0xe85a4a };
+    for (const an of (D.annotations || [])) {
+      if (an.type === 'min' && Math.abs(an.a) < 1e-6 && Math.abs(an.b) < 1e-6) continue;  // 中心已标
+      markerAt(A2(an.a), B2(an.b), COLS[an.type], an.type + ' ' + an.a.toFixed(2) + ',' + an.b.toFixed(2));
+    }
+  } else {
+    markerAt(a0, 0.5, 0x5aa7e8, 'A=' + D.meta.snapA);
+    markerAt(a1, 0.5, 0xe86a5a, 'B=' + D.meta.snapB);
+    markerAt(am, 0.5, 0xf0d060, '谷底 α=' + minP.a);
+  }
+
+  // 底座网格
+  const grid = new THREE.GridHelper(Math.max(SX, SZ) * 1.15, 24, 0x223038, 0x182128);
+  grid.position.y = -0.05; scene.add(grid);
+
+  // 相机初始视角
+  function resetCam() {
+    camera.position.set(78, 62, 92);
+    camera.lookAt(0, 12, 0);
+    controls.target.set(0, 12, 0);
+  }
+  resetCam();
+
+  // 按钮交互
+  let wireOn = false, rotateOn = true;
+  document.getElementById('btnWire').onclick = () => {
+    wireOn = !wireOn;
+    wire.material.opacity = wireOn ? 0.35 : 0.0;
+    mat.opacity = wireOn ? 0.35 : 1.0; mat.transparent = wireOn;
+  };
+  document.getElementById('btnRotate').onclick = (e) => {
+    rotateOn = !rotateOn; controls.autoRotate = rotateOn;
+    e.target.textContent = rotateOn ? '自动旋转' : '已暂停';
+  };
+  document.getElementById('btnReset').onclick = resetCam;
+
+  window.addEventListener('resize', () => {
+    camera.aspect = W() / H(); camera.updateProjectionMatrix();
+    renderer.setSize(W(), H());
+  });
+
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+  window.__renderOK = { tris: geo.attributes.position.count / 3 | 0 };
+})();
+</script>
+</body>
+</html>

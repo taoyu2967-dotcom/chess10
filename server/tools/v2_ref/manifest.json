@@ -1,0 +1,20 @@
+{
+ "n": 32,
+ "C_IN": 24,
+ "C_HID": 128,
+ "HEADS": 4,
+ "D_MODEL": 128,
+ "PCH": 100,
+ "N_POS": 100,
+ "MANO_WINDOW": 5,
+ "MANO_LEVELS": 3,
+ "files": [
+  "inputs.f32",
+  "feat_trunk.f32",
+  "pol_logits.f32",
+  "raw_value.f32",
+  "mano_out.f32"
+ ],
+ "weightFile": "weights_v2_rand.bin",
+ "note": "feat_trunk = trunk 全部输出(3CNN+MANO+3CNN+GRN)；mano_out = MANO 模块输出（输入=前3块后特征）"
+}

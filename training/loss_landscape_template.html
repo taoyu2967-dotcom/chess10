@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>chess10 损失地貌可视化</title>
+<style>
+  :root { --bg:#0f1419; --panel:#1a222b; --border:#2a3743; --text:#e6edf3; --dim:#8aa0b4; --accent:#4fd1a5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI","Microsoft YaHei",system-ui,sans-serif; padding: 20px; }
+  h1 { font-size: 19px; margin-bottom: 4px; }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1400px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .card h2 { font-size: 14px; color: var(--accent); margin-bottom: 8px; }
+  canvas { width: 100%; background: #0b0f14; border-radius: 8px; }
+  .note { color: var(--dim); font-size: 12px; line-height: 1.7; margin-top: 8px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--dim); margin-top: 6px; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 22px; height: 3px; vertical-align: middle; margin-right: 4px; }
+</style>
+</head>
+<body>
+<h1>chess10 神经网络损失地貌（Loss Landscape）</h1>
+<div class="sub" id="metaLine"></div>
+<div class="grid">
+  <div class="card">
+    <h2>1D · 两快照连线插值（α 截面，β=0 = 训练实际走过的路径）</h2>
+    <canvas id="cv1" width="640" height="380"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:#4fd1a5"></span>总损失</span>
+      <span><span class="sw" style="background:#5aa7e8"></span>价值损失</span>
+      <span><span class="sw" style="background:#e8b45a"></span>策略损失</span>
+    </div>
+    <div class="note" id="note1"></div>
+  </div>
+  <div class="card">
+    <h2>2D · 等高线热力图（α: 快照连线 × β: 同尺度随机方向）</h2>
+    <canvas id="cv2" width="640" height="380"></canvas>
+    <div class="note" id="note2"></div>
+  </div>
+</div>
+<div class="card" style="max-width:1400px;margin-top:16px">
+  <div class="note" id="note3"></div>
+</div>
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById('payload').textContent);
+document.title = 'chess10 损失地貌 · ' + D.meta.snapA + ' → ' + D.meta.snapB;
+document.getElementById('metaLine').textContent =
+  `快照 A=${D.meta.snapA}（α=0） · 快照 B=${D.meta.snapB}（α=1） · 样本 ${D.meta.samples} · ` +
+  `损失定义 ${D.meta.lossDef} · α∈[${D.meta.alphaRange[0]},${D.meta.alphaRange[1]}] β∈[${D.meta.betaRange[0]},${D.meta.betaRange[1]}]`;
+
+/* ---------- 1D 曲线 ---------- */
+(function draw1D() {
+  const cv = document.getElementById('cv1'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, L = 52, R = 14, T = 14, B = 34;
+  const c = D.curve;
+  const aMin = c[0].a, aMax = c[c.length-1].a;
+  let vMin = Infinity, vMax = -Infinity;
+  for (const p of c) { vMin = Math.min(vMin, p.total, p.value, p.policy); vMax = Math.max(vMax, p.total, p.value, p.policy); }
+  const pad = (vMax - vMin) * 0.08 || 1; vMin -= pad; vMax += pad;
+  const X = a => L + (a - aMin) / (aMax - aMin) * (W - L - R);
+  const Y = v => T + (vMax - v) / (vMax - vMin) * (H - T - B);
+  // 网格
+  ctx.strokeStyle = '#1d2731'; ctx.fillStyle = '#5a6c7d'; ctx.font = '10px sans-serif';
+  for (let i = 0; i <= 5; i++) {
+    const v = vMin + (vMax - vMin) * i / 5;
+    ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke();
+    ctx.fillText(v.toFixed(2), 6, Y(v) + 3);
+  }
+  for (const a of [-0.2, 0, 0.4, 0.8, 1, 1.4]) {
+    if (a < aMin || a > aMax) continue;
+    ctx.fillText(a.toFixed(1), X(a) - 6, H - B + 14);
+  }
+  ctx.fillText('α', W - R - 4, H - B + 14);
+  // 曲线
+  function line(key, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    c.forEach((p, i) => { const x = X(p.a), y = Y(p[key]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  }
+  line('total', '#4fd1a5'); line('value', '#5aa7e8'); line('policy', '#e8b45a');
+  // 端点与最小值标记
+  const minP = c.reduce((m, p) => p.total < m.total ? p : m, c[0]);
+  ctx.fillStyle = '#4fd1a5';
+  [[0, 'A=' + D.meta.snapA], [1, 'B=' + D.meta.snapB]].forEach(([a, label]) => {
+    const p = c.find(q => Math.abs(q.a - a) < 1e-6); if (!p) return;
+    ctx.beginPath(); ctx.arc(X(p.a), Y(p.total), 4, 0, 7); ctx.fill();
+    ctx.fillText(label, X(p.a) - 14, Y(p.total) - 10);
+  });
+  ctx.strokeStyle = '#888'; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(X(minP.a), T); ctx.lineTo(X(minP.a), H - B); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#cfe3d8'; ctx.fillText('谷底 α=' + minP.a, X(minP.a) + 4, T + 10);
+  document.getElementById('note1').textContent =
+    `训练从 A 走到 B：谷底出现在 α=${minP.a}（total ${minP.total.toFixed(3)}），A→B 方向 loss 总体下行 = 权重确实在往低处走。` +
+    `曲线无剧烈锯齿 = 该截面光滑，训练步长合理。`;
+})();
+
+/* ---------- 2D 热力等高线 ---------- */
+(function draw2D() {
+  const cv = document.getElementById('cv2'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, L = 52, R = 14, T = 14, B = 34;
+  const G = D.gridTotal, al = D.alphas, be = D.betas;
+  let gMin = Infinity, gMax = -Infinity;
+  for (const row of G) for (const v of row) {
+    if (v == null) continue;
+    gMin = Math.min(gMin, v); gMax = Math.max(gMax, v);
+  }
+  const X = a => L + (a - al[0]) / (al[al.length-1] - al[0]) * (W - L - R);
+  const Y = b => T + (b - be[0]) / (be[be.length-1] - be[0]) * (H - T - B);
+  const cellW = (W - L - R) / (al.length - 1), cellH = (H - T - B) / (be.length - 1);
+  // 色带：深蓝(低) -> 青绿 -> 黄 -> 红(高)
+  function color(v) {
+    if (v == null) return null;
+    const t = Math.max(0, Math.min(1, (v - gMin) / (gMax - gMin || 1)));
+    const stops = [[15,30,90],[32,120,160],[80,190,140],[230,200,80],[220,80,60]];
+    const s = t * (stops.length - 1), i = Math.min(stops.length - 2, s | 0), f = s - i;
+    const c0 = stops[i], c1 = stops[i+1];
+    return `rgb(${Math.round(c0[0]+(c1[0]-c0[0])*f)},${Math.round(c0[1]+(c1[1]-c0[1])*f)},${Math.round(c0[2]+(c1[2]-c0[2])*f)})`;
+  }
+  for (let j = 0; j < be.length - 1; j++) for (let i = 0; i < al.length - 1; i++) {
+    const vals = [G[j][i], G[j][i+1], G[j+1][i], G[j+1][i+1]];
+    if (vals.some(v => v == null)) continue;   // NaN 角（极端外推）不渲染
+    const v = vals.reduce((a, b) => a + b, 0) / 4;
+    ctx.fillStyle = color(v);
+    const x0 = L + i * cellW, y0 = T + j * cellH;
+    ctx.fillRect(x0, y0, cellW + 1, cellH + 1);
+  }
+  // 等高线（线性插值 marching-squares 简化版：每 8 条）
+  const levels = 10;
+  ctx.strokeStyle = 'rgba(230,237,243,0.35)'; ctx.lineWidth = 1;
+  for (let li = 1; li < levels; li++) {
+    const lv = gMin + (gMax - gMin) * li / levels;
+    ctx.beginPath();
+    for (let j = 0; j < be.length - 1; j++) for (let i = 0; i < al.length - 1; i++) {
+      const raw = [[i,j,G[j][i]],[i+1,j,G[j][i+1]],[i+1,j+1,G[j+1][i+1]],[i,j+1,G[j+1][j+1]]];
+      if (raw.some(c => c[2] == null)) continue;
+      const corners = raw, pts = [];
+      for (let e = 0; e < 4; e++) {
+        const [x1,y1,v1] = corners[e], [x2,y2,v2] = corners[(e+1)%4];
+        if ((v1 - lv) * (v2 - lv) < 0) {
+          const f = (lv - v1) / (v2 - v1);
+          pts.push([x1 + (x2-x1)*f, y1 + (y2-y1)*f]);
+        }
+      }
+      if (pts.length >= 2) { ctx.moveTo(X(pts[0][0])+0, Y(pts[0][1])); ctx.lineTo(X(pts[1][0]), Y(pts[1][1])); }
+    }
+    ctx.stroke();
+  }
+  // 轴标
+  ctx.fillStyle = '#5a6c7d'; ctx.font = '10px sans-serif';
+  ctx.fillText('α ' + al[0], L, H - B + 14); ctx.fillText(String(al[al.length-1]), W - R - 18, H - B + 14);
+  ctx.save(); ctx.translate(12, H - B); ctx.rotate(-Math.PI/2); ctx.fillText('β ' + be[0] + ' … ' + be[be.length-1], 0, 0); ctx.restore();
+  // 色标
+  for (let i = 0; i < 40; i++) { ctx.fillStyle = color(gMin + (gMax-gMin)*i/39); ctx.fillRect(W - R - 40, T + i*5, 12, 5); }
+  ctx.fillStyle = '#cfe3d8'; ctx.fillText(gMax.toFixed(2), W - R - 44, T - 2); ctx.fillText(gMin.toFixed(2), W - R - 44, T + 40*5 + 10);
+  document.getElementById('note2').textContent =
+    `β=0 行（画布中部水平线）即训练真实走过的截面；热区中心=低损失盆底。` +
+    `颜色从深蓝(低)到红(高)：${gMin.toFixed(3)} ~ ${gMax.toFixed(3)}。`;
+  document.getElementById('note3').textContent =
+    `解读：① 若等高线呈单谷且 A→B 连线大致沿谷底延伸，说明训练方向健康、没有翻越山脊；` +
+    `② β 方向隆起的宽度=盆地的"容错半径"——越宽说明权重附近的扰动越不容易劣化（泛化潜力）；` +
+    `③ 若 2D 图出现多个分离盆地，说明不同快照落在不同盆地（本次 A、B 相差 ${D.meta.snapA}/${D.meta.snapB} 期的连续训练，应属同一盆地）。` +
+    ` 计算批次：${D.meta.samples} 样本 × ${(D.alphas.length*D.betas.length)|0} 网格点。`;
+})();
+</script>
+</body>
+</html>

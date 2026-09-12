@@ -1,0 +1,31 @@
+# ---- 大文件 / 可再生数据 ----
+cloud_pull/
+training/data/
+training/teacher/*.f32
+server/node_modules/
+node_modules/
+server/models_ov/
+logs/
+*.log
+*.pid
+*.f32
+*.blob
+*.bin
+*.npz
+*.lock
+STOP.flag
+__pycache__/
+*.pyc
+.DS_Store
+.mimosa/
+
+# ---- FSF 二进制（GPL，官方下载；只保留变体定义）----
+fsf/*
+!fsf/variants.ini
+
+# ---- 误混入本目录的无关私人项目 ----
+bf_league_card/
+
+# ---- 单文件版的历史权重（代码保留，权重不入库）----
+单文件版/*.bin
+ov_train/_tmp*.bin

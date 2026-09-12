@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>棋子套件预览 · 木格</title>
+<style>
+  body { background: #070b12; color: #eaf1f8; font-family: "Segoe UI", sans-serif; padding: 30px; }
+  .row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .sq { width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .light { background: linear-gradient(150deg, #f2ddb8, #e6c998 52%, #dcbc85); }
+  .dark { background: linear-gradient(150deg, #c08c5d, #ad7a4e 52%, #9d6d43); }
+  .lbl { font-size: 12px; color: #91a3b5; margin: 16px 0 6px; }
+  .small .sq { width: 34px; height: 34px; }
+  .tiny .sq { width: 25px; height: 25px; }
+</style>
+</head>
+<body>
+<div id="mount"></div>
+<script src="pieces.js"></script>
+<script>
+  document.body.insertAdjacentHTML("afterbegin", window.PIECE_DEFS + window.PIECE_SYMBOLS);
+  const style = document.createElement("style");
+  style.textContent = window.PIECE_CSS;
+  document.head.appendChild(style);
+  const types = ["k","q","r","b","n","p","d"];
+  const mk = (cls, t, small) => `<div class="sq ${small ? "" : (t.charCodeAt(0) % 2 ? "light" : "dark")}"><svg class="piece-svg ${cls}" viewBox="0 0 100 100"><use href="#pc-${t}"/></svg></div>`;
+  let html = '<div class="lbl">白方 72px（深浅格交替）</div><div class="row">' + types.map(t => mk("pc-w", t, false)).join("") + "</div>";
+  html += '<div class="lbl">黑方 72px</div><div class="row">' + types.map(t => mk("pc-b", t, false)).join("") + "</div>";
+  html += '<div class="lbl">34px 可读性</div><div class="row small">' + types.map(t => mk("pc-w", t, true)).join("") + types.map(t => mk("pc-b", t, true)).join("") + "</div>";
+  html += '<div class="lbl">25px 极小</div><div class="row tiny">' + types.map(t => mk("pc-w", t, true)).join("") + types.map(t => mk("pc-b", t, true)).join("") + "</div>";
+  document.getElementById("mount").innerHTML = html;
+</script>
+</body>
+</html>

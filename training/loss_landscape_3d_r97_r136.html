@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>chess10 损失地貌 3D</title>
+<style>
+  :root { --bg:#0f1419; --panel:#1a222b; --border:#2a3743; --text:#e6edf3; --dim:#8aa0b4; --accent:#4fd1a5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI","Microsoft YaHei",system-ui,sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { padding: 12px 18px 8px; }
+  h1 { font-size: 18px; }
+  #meta { color: var(--dim); font-size: 12.5px; margin-top: 3px; }
+  #view { flex: 1; position: relative; border-top: 1px solid var(--border); }
+  canvas { display: block; }
+  #hud { position: absolute; left: 12px; bottom: 10px; background: rgba(15,20,25,.82); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--dim); line-height: 1.8; max-width: 360px; }
+  #hud b { color: var(--text); }
+  #legend { position: absolute; right: 12px; top: 10px; background: rgba(15,20,25,.82); border: 1px solid var(--border); border-radius: 10px; padding: 8px; font-size: 11px; color: var(--dim); text-align: right; }
+  #legend .bar { width: 14px; height: 160px; border-radius: 4px; margin: 6px auto 2px; background: linear-gradient(to top, #0f1e5a, #2078a0, #50be8c, #e6c850, #dc503c); }
+  #toggle { position: absolute; right: 12px; bottom: 10px; }
+  #toggle button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+  #toggle button:hover { border-color: var(--accent); }
+  .err { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>chess10 神经网络损失地貌 · 3D 交互视图</h1>
+  <div id="meta"></div>
+</header>
+<div id="view"><div class="err" id="err" style="display:none"></div></div>
+<div id="hud">
+  <b>操作</b>：拖拽旋转 · 滚轮缩放 · 右键平移<br>
+  <span id="hudBody"></span>
+</div>
+<div id="legend">损失 高<br><div class="bar"></div>低</div>
+<div id="toggle">
+  <button id="btnWire">线框</button>
+  <button id="btnRotate">自动旋转</button>
+  <button id="btnReset">复位视角</button>
+</div>
+<script id="payload" type="application/json">{"meta": {"snapA": "r97", "snapB": "r136", "samples": 3000, "lossDef": "total = 1.3*MSE(value, arctanh z) + 2.0*CE(policy)", "alphaRange": [-0.2, 1.4], "betaRange": [-0.6, 0.6], "note": "alpha=0 -> snapA; alpha=1 -> snapB; beta=0 平面 = 训练轨迹所在截面"}, "alphas": [-0.2, -0.16, -0.12, -0.08, -0.04, -0.0, 0.04, 0.08, 0.12, 0.16, 0.2, 0.24, 0.28, 0.32, 0.36, 0.4, 0.44, 0.48, 0.52, 0.56, 0.6, 0.64, 0.68, 0.72, 0.76, 0.8, 0.84, 0.88, 0.92, 0.96, 1.0, 1.04, 1.08, 1.12, 1.16, 1.2, 1.24, 1.28, 1.32, 1.36, 1.4], "betas": [-0.6, -0.55, -0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.05, 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], "curve": [{"a": -0.2, "total": 8.15397, "value": 0.09707, "policy": 4.01389}, {"a": -0.16, "total": 8.14421, "value": 0.09447, "policy": 4.0107}, {"a": -0.12, "total": 8.13469, "value": 0.0919, "policy": 4.00761}, {"a": -0.08, "total": 8.12573, "value": 0.08946, "policy": 4.00472}, {"a": -0.04, "total": 8.1173, "value": 0.08707, "policy": 4.00205}, {"a": -0.0, "total": 8.10963, "value": 0.08487, "policy": 3.99965}, {"a": 0.04, "total": 8.10256, "value": 0.08283, "policy": 3.99744}, {"a": 0.08, "total": 8.0953, "value": 0.08075, "policy": 3.99517}, {"a": 0.12, "total": 8.08897, "value": 0.07892, "policy": 3.99319}, {"a": 0.16, "total": 8.08245, "value": 0.07691, "policy": 3.99124}, {"a": 0.2, "total": 8.07731, "value": 0.07514, "policy": 3.98981}, {"a": 0.24, "total": 8.07156, "value": 0.07326, "policy": 3.98816}, {"a": 0.28, "total": 8.06632, "value": 0.07148, "policy": 3.9867}, {"a": 0.32, "total": 8.0611, "value": 0.06984, "policy": 3.98516}, {"a": 0.36, "total": 8.05636, "value": 0.06819, "policy": 3.98386}, {"a": 0.4, "total": 8.05181, "value": 0.06654, "policy": 3.98265}, {"a": 0.44, "total": 8.04717, "value": 0.06488, "policy": 3.98142}, {"a": 0.48, "total": 8.04395, "value": 0.0633, "policy": 3.98083}, {"a": 0.52, "total": 8.0399, "value": 0.06174, "policy": 3.97982}, {"a": 0.56, "total": 8.03657, "value": 0.06023, "policy": 3.97914}, {"a": 0.6, "total": 8.03338, "value": 0.05897, "policy": 3.97836}, {"a": 0.64, "total": 8.03095, "value": 0.05785, "policy": 3.97787}, {"a": 0.68, "total": 8.02816, "value": 0.05658, "policy": 3.9773}, {"a": 0.72, "total": 8.02613, "value": 0.05538, "policy": 3.97707}, {"a": 0.76, "total": 8.02433, "value": 0.05419, "policy": 3.97694}, {"a": 0.8, "total": 8.02313, "value": 0.0531, "policy": 3.97705}, {"a": 0.84, "total": 8.02228, "value": 0.05199, "policy": 3.97735}, {"a": 0.88, "total": 8.02212, "value": 0.05114, "policy": 3.97782}, {"a": 0.92, "total": 8.02219, "value": 0.05025, "policy": 3.97844}, {"a": 0.96, "total": 8.02326, "value": 0.04955, "policy": 3.97942}, {"a": 1.0, "total": 8.02498, "value": 0.0491, "policy": 3.98057}, {"a": 1.04, "total": 8.02787, "value": 0.04885, "policy": 3.98218}, {"a": 1.08, "total": 8.03137, "value": 0.04892, "policy": 3.98388}, {"a": 1.12, "total": 8.03579, "value": 0.04924, "policy": 3.98589}, {"a": 1.16, "total": 8.04163, "value": 0.04988, "policy": 3.98839}, {"a": 1.2, "total": 8.04827, "value": 0.05073, "policy": 3.99117}, {"a": 1.24, "total": 8.05572, "value": 0.05178, "policy": 3.9942}, {"a": 1.28, "total": 8.0653, "value": 0.0532, "policy": 3.99807}, {"a": 1.32, "total": 8.07521, "value": 0.05516, "policy": 4.00175}, {"a": 1.36, "total": 8.08753, "value": 0.05742, "policy": 4.00644}, {"a": 1.4, "total": 8.10176, "value": 0.06018, "policy": 4.01177}], "gridTotal": [[16.34735, 16.35793, 16.36928, 16.3894, 16.42352, 16.44505, 16.467, 16.48496, 16.52806, 16.55463, 16.5722, 16.62901, 16.68234, 16.75045, 16.80334, 16.89175, 16.96558, 17.06894, 17.25714, 17.49238, 17.88844, 18.59284, 20.39806, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], [15.22603, 15.22532, 15.23127, 15.23433, 15.23786, 15.23528, 15.2391, 15.24472, 15.24052, 15.24452, 15.24838, 15.24348, 15.24092, 15.24132, 15.24028, 15.23124, 15.22815, 15.2251, 15.21385, 15.21067, 15.20359, 15.20105, 15.19857, 15.18092, 15.17102, 15.16549, 15.15466, 15.14728, 15.13357, 15.12374, 15.10269, 15.09112, 15.08151, 15.07524, 15.06485, 15.06018, 15.04481, 15.04187, 15.04137, 15.03157, 15.03426], [14.26265, 14.26448, 14.26616, 14.25879, 14.26505, 14.2652, 14.27162, 14.26885, 14.26821, 14.26635, 14.26335, 14.26248, 14.25917, 14.25548, 14.24639, 14.24497, 14.23843, 14.23392, 14.22593, 14.21907, 14.21414, 14.19965, 14.19102, 14.18171, 14.17298, 14.16471, 14.14427, 14.13111, 14.12465, 14.11185, 14.10136, 14.08846, 14.07646, 14.05518, 14.04581, 14.03452, 14.02408, 14.01549, 14.00455, 14.00503, 13.98745], [13.33467, 13.33918, 13.33501, 13.33568, 13.33723, 13.33676, 13.33002, 13.3257, 13.32822, 13.32103, 13.31858, 13.31442, 13.31691, 13.3073, 13.30285, 13.29917, 13.28937, 13.28507, 13.27748, 13.26372, 13.25824, 13.24818, 13.24014, 13.23201, 13.21919, 13.21092, 13.19406, 13.18631, 13.16678, 13.1565, 13.14765, 13.13503, 13.1239, 13.11434, 13.10956, 13.08946, 13.08248, 13.07157, 13.06506, 13.05881, 13.05184], [12.45071, 12.44203, 12.44216, 12.43915, 12.43784, 12.43305, 12.43126, 12.42833, 12.42712, 12.42175, 12.41775, 12.4096, 12.40816, 12.40182, 12.39682, 12.38621, 12.37779, 12.37139, 12.36163, 12.3573, 12.34981, 12.34319, 12.33116, 12.31941, 12.3108, 12.29608, 12.28583, 12.27337, 12.2623, 12.24982, 12.23701, 12.22733, 12.21789, 12.20851, 12.20155, 12.192, 12.18409, 12.1676, 12.16146, 12.1555, 12.15358], [11.60249, 11.59812, 11.59413, 11.59187, 11.58771, 11.58486, 11.58083, 11.5728, 11.57063, 11.56562, 11.5576, 11.55193, 11.54789, 11.53956, 11.53501, 11.52865, 11.52169, 11.51069, 11.50264, 11.4964, 11.48926, 11.47801, 11.46788, 11.46031, 11.447, 11.43983, 11.42905, 11.41786, 11.40206, 11.39424, 11.38495, 11.36997, 11.36381, 11.351, 11.34572, 11.33684, 11.33319, 11.32703, 11.32516, 11.32379, 11.31271], [10.81754, 10.81287, 10.80487, 10.79792, 10.79533, 10.78834, 10.77973, 10.77671, 10.77152, 10.76264, 10.75891, 10.75567, 10.75049, 10.73905, 10.7332, 10.7264, 10.71732, 10.70918, 10.701, 10.69337, 10.68173, 10.67846, 10.66953, 10.65821, 10.64769, 10.63898, 10.62922, 10.61905, 10.60831, 10.6005, 10.58785, 10.58052, 10.57688, 10.5672, 10.55996, 10.5539, 10.54566, 10.54508, 10.54373, 10.53862, 10.54021], [10.1026, 10.09115, 10.08459, 10.0797, 10.07113, 10.06619, 10.05905, 10.05106, 10.04506, 10.03797, 10.0328, 10.02283, 10.01484, 10.00819, 10.0017, 9.99204, 9.99094, 9.98325, 9.97178, 9.96449, 9.95633, 9.95039, 9.93662, 9.93052, 9.92341, 9.90994, 9.90388, 9.89871, 9.89055, 9.87954, 9.8739, 9.86673, 9.85873, 9.85553, 9.85004, 9.84736, 9.84105, 9.84018, 9.84208, 9.84407, 9.84751], [9.46799, 9.4615, 9.4533, 9.44419, 9.43588, 9.42789, 9.4211, 9.41172, 9.40564, 9.39993, 9.38985, 9.38215, 9.37841, 9.37259, 9.36145, 9.35484, 9.34798, 9.33965, 9.33107, 9.32524, 9.3179, 9.309, 9.30249, 9.29687, 9.28772, 9.28162, 9.27434, 9.26899, 9.2594, 9.25255, 9.24838, 9.24169, 9.23826, 9.23484, 9.23382, 9.23285, 9.23154, 9.23395, 9.23541, 9.23825, 9.24653], [8.94255, 8.93259, 8.92174, 8.91145, 8.90542, 8.89765, 8.88625, 8.88071, 8.87453, 8.86543, 8.85921, 8.85149, 8.84498, 8.83708, 8.82927, 8.82301, 8.8147, 8.80867, 8.80311, 8.79743, 8.78956, 8.78403, 8.7779, 8.76952, 8.76363, 8.75822, 8.75223, 8.74649, 8.7419, 8.74029, 8.73432, 8.73305, 8.73102, 8.72893, 8.72991, 8.73079, 8.73234, 8.73467, 8.74025, 8.7465, 8.75766], [8.53563, 8.52472, 8.51505, 8.50682, 8.49824, 8.4882, 8.48008, 8.47278, 8.46461, 8.45757, 8.45111, 8.44413, 8.43637, 8.43071, 8.42551, 8.41781, 8.41179, 8.40634, 8.39958, 8.39377, 8.38939, 8.3837, 8.37761, 8.37307, 8.36892, 8.36459, 8.36193, 8.35877, 8.35577, 8.35316, 8.35089, 8.35114, 8.34966, 8.35156, 8.35425, 8.35843, 8.36273, 8.36804, 8.37588, 8.38456, 8.39451], [8.26873, 8.25892, 8.24864, 8.23827, 8.22985, 8.22127, 8.21446, 8.20605, 8.19947, 8.19312, 8.18589, 8.17966, 8.17388, 8.1683, 8.16184, 8.15653, 8.15125, 8.14616, 8.14178, 8.13711, 8.13317, 8.12928, 8.12545, 8.12193, 8.11889, 8.11641, 8.11412, 8.11275, 8.11111, 8.11128, 8.11119, 8.11275, 8.11481, 8.11813, 8.12265, 8.12764, 8.13447, 8.14203, 8.15082, 8.16078, 8.17414], [8.15397, 8.14421, 8.13469, 8.12573, 8.1173, 8.10963, 8.10256, 8.0953, 8.08897, 8.08245, 8.07731, 8.07156, 8.06632, 8.0611, 8.05636, 8.05181, 8.04717, 8.04395, 8.0399, 8.03657, 8.03338, 8.03095, 8.02816, 8.02613, 8.02433, 8.02313, 8.02228, 8.02212, 8.02219, 8.02326, 8.02498, 8.02787, 8.03137, 8.03579, 8.04163, 8.04827, 8.05572, 8.0653, 8.07521, 8.08753, 8.10176], [8.19945, 8.19074, 8.18204, 8.17389, 8.16646, 8.15978, 8.15337, 8.14625, 8.14108, 8.13548, 8.13095, 8.12553, 8.12113, 8.117, 8.11279, 8.10917, 8.10583, 8.10287, 8.10002, 8.0977, 8.09546, 8.09347, 8.09182, 8.09056, 8.08949, 8.09003, 8.09007, 8.08997, 8.09155, 8.09286, 8.09632, 8.09982, 8.1046, 8.10962, 8.11622, 8.12383, 8.13185, 8.14231, 8.15305, 8.16556, 8.18021], [8.40702, 8.40001, 8.39201, 8.38438, 8.37881, 8.37269, 8.36629, 8.36098, 8.35532, 8.35076, 8.34701, 8.34238, 8.3387, 8.33492, 8.33244, 8.32816, 8.32544, 8.32387, 8.32133, 8.31857, 8.31698, 8.31624, 8.3154, 8.31407, 8.31402, 8.31426, 8.31493, 8.31513, 8.31792, 8.31833, 8.32219, 8.32666, 8.33119, 8.33693, 8.34393, 8.35087, 8.35949, 8.36963, 8.38112, 8.39338, 8.40693], [8.77241, 8.76503, 8.7593, 8.75144, 8.74566, 8.74036, 8.73551, 8.72987, 8.7259, 8.7214, 8.718, 8.71371, 8.71039, 8.70669, 8.70422, 8.70007, 8.69946, 8.6952, 8.69447, 8.6927, 8.69081, 8.68996, 8.6882, 8.68908, 8.68733, 8.68822, 8.68857, 8.68913, 8.69011, 8.69298, 8.69594, 8.70111, 8.70467, 8.70946, 8.71575, 8.72172, 8.73097, 8.74007, 8.75068, 8.7629, 8.77685], [9.27975, 9.27367, 9.26967, 9.2644, 9.25734, 9.25376, 9.24751, 9.24368, 9.23777, 9.23462, 9.23112, 9.22676, 9.22332, 9.22069, 9.2177, 9.21501, 9.21148, 9.20904, 9.20705, 9.20554, 9.20184, 9.19945, 9.19984, 9.19843, 9.1975, 9.19795, 9.19804, 9.19885, 9.19943, 9.20094, 9.20403, 9.20477, 9.21209, 9.21527, 9.21953, 9.22647, 9.23373, 9.24037, 9.25168, 9.2635, 9.27552], [9.91422, 9.90985, 9.90458, 9.90059, 9.89479, 9.89036, 9.88506, 9.88048, 9.87597, 9.87169, 9.86972, 9.86552, 9.86169, 9.85698, 9.85477, 9.84987, 9.8479, 9.84531, 9.8415, 9.83931, 9.83648, 9.83489, 9.83362, 9.83095, 9.82936, 9.82851, 9.82606, 9.82769, 9.82761, 9.82671, 9.83013, 9.83039, 9.83541, 9.83976, 9.84199, 9.84835, 9.85434, 9.86069, 9.868, 9.8789, 9.88938], [10.65632, 10.65196, 10.6489, 10.64238, 10.6408, 10.63306, 10.62978, 10.62788, 10.62067, 10.61677, 10.61357, 10.60825, 10.60546, 10.6011, 10.59618, 10.59287, 10.58755, 10.58603, 10.5807, 10.57827, 10.57585, 10.57207, 10.56763, 10.56825, 10.56552, 10.5641, 10.55972, 10.55881, 10.55904, 10.55838, 10.55897, 10.55972, 10.5622, 10.56599, 10.56746, 10.57011, 10.57506, 10.58082, 10.58747, 10.59746, 10.60576], [11.48907, 11.48561, 11.48295, 11.47915, 11.474, 11.46887, 11.46395, 11.45984, 11.45589, 11.44977, 11.44661, 11.44067, 11.43794, 11.43192, 11.42893, 11.4237, 11.41865, 11.41185, 11.41015, 11.4039, 11.40079, 11.39764, 11.39418, 11.39134, 11.38766, 11.38487, 11.38222, 11.3771, 11.37796, 11.3745, 11.37312, 11.37349, 11.37578, 11.37593, 11.37686, 11.37772, 11.3834, 11.38735, 11.39494, 11.40102, 11.40779], [12.39724, 12.39211, 12.3894, 12.3854, 12.38074, 12.37446, 12.37026, 12.36752, 12.36146, 12.35725, 12.35273, 12.34686, 12.34243, 12.33598, 12.3308, 12.326, 12.31716, 12.31687, 12.30876, 12.30375, 12.29826, 12.29484, 12.29014, 12.28464, 12.28318, 12.27657, 12.27411, 12.27009, 12.26496, 12.26605, 12.26291, 12.26092, 12.26051, 12.26027, 12.25993, 12.25975, 12.26005, 12.26363, 12.26989, 12.27396, 12.27971], [13.3617, 13.35778, 13.35441, 13.35237, 13.34433, 13.34176, 13.33717, 13.33092, 13.32603, 13.32132, 13.316, 13.30954, 13.30544, 13.30052, 13.29125, 13.2859, 13.28128, 13.27615, 13.26763, 13.26221, 13.25703, 13.2488, 13.24479, 13.23974, 13.23406, 13.22817, 13.22345, 13.21934, 13.21576, 13.21154, 13.20903, 13.20572, 13.20457, 13.20346, 13.2003, 13.20181, 13.19936, 13.20222, 13.20479, 13.20519, 13.21188], [14.37599, 14.37211, 14.37016, 14.36634, 14.35946, 14.35445, 14.35181, 14.34324, 14.34161, 14.33392, 14.3285, 14.32151, 14.31426, 14.30985, 14.30365, 14.29593, 14.28658, 14.28167, 14.27523, 14.26685, 14.26159, 14.25221, 14.24984, 14.24216, 14.23532, 14.22982, 14.22224, 14.21651, 14.21079, 14.20635, 14.20137, 14.19919, 14.19811, 14.19285, 14.18957, 14.18966, 14.18863, 14.18555, 14.18646, 14.18758, 14.19298], [15.42967, 15.42528, 15.42099, 15.41537, 15.41135, 15.40637, 15.39936, 15.39461, 15.39083, 15.38202, 15.37531, 15.37328, 15.36401, 15.3583, 15.35011, 15.34208, 15.33395, 15.32861, 15.32274, 15.31131, 15.30345, 15.29673, 15.28878, 15.28281, 15.27504, 15.2687, 15.26272, 15.25324, 15.24759, 15.24147, 15.23487, 15.23189, 15.22349, 15.2212, 15.21755, 15.21526, 15.21286, 15.21106, 15.20955, 15.21088, 15.21148], [16.51349, 16.5106, 16.5087, 16.50065, 16.49711, 16.48908, 16.48178, 16.47766, 16.4705, 16.46337, 16.45885, 16.4521, 16.44461, 16.43661, 16.4308, 16.42235, 16.41399, 16.40241, 16.3959, 16.38665, 16.3785, 16.37054, 16.36257, 16.35608, 16.3482, 16.33811, 16.33206, 16.32305, 16.31486, 16.30577, 16.29913, 16.29675, 16.28755, 16.27919, 16.27974, 16.27162, 16.27089, 16.26964, 16.26683, 16.26519, 16.26259]]}</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+"use strict";
+(function () {
+  const err = document.getElementById('err');
+  function fail(msg) { err.textContent = msg; err.style.display = 'flex'; }
+  if (typeof THREE === 'undefined') { fail('Three.js 加载失败（需要联网 CDN）'); return; }
+
+  const D = JSON.parse(document.getElementById('payload').textContent);
+  const KIND = D.kind || 'interp';
+  document.title = KIND === 'li'
+    ? 'chess10 损失地貌 3D · Li随机切片 @' + D.meta.ref
+    : 'chess10 损失地貌 3D · ' + D.meta.snapA + ' → ' + D.meta.snapB;
+  document.getElementById('meta').textContent = KIND === 'li'
+    ? `θ*=${D.meta.ref} · Li et al. 2018 逐滤波归一化随机方向切片 · 网格 ${D.betas.length}×${D.alphas.length} · ${D.meta.samples} 样本 · ${D.meta.lossDef}`
+    : `A=${D.meta.snapA}（α=0）→ B=${D.meta.snapB}（α=1） · 网格 ${D.betas.length}×${D.alphas.length} · ${D.meta.samples} 样本 · ${D.meta.lossDef}`;
+  if (KIND === 'li') {
+    const rows = (D.sharpness || []).map(s => `r=${s.r}: 平均+${Number(s.mean).toFixed(1)} / 峰值+${Number(s.max).toFixed(1)}`).join('<br>');
+    document.getElementById('hudBody').innerHTML =
+      `<b>方法</b>：Li et al. 2018（归一化层不扰动）<br>` +
+      `<b>中心 θ*</b>=切片损失极小（蓝球）<br>` +
+      `<b>切片特征</b>：绿=局部极小 · 橙=鞍点候选 · 红=局部极大<br>` +
+      `<b>锐度（离中心损失增量）</b>：<br>${rows}<br>` +
+      `<span style="color:#6a7a88">注：2.8M 维空间的驻点不可见于 2D 切片；此处为切片局部特征</span>`;
+  } else {
+    document.getElementById('hudBody').innerHTML =
+      `<b>绿色轨迹线</b>：训练真实路径（β=0 截面，A→B）<br>` +
+      `<b>球标记</b>：A=起点快照 · B=终点快照 · 谷底=损失最低点`;
+  }
+
+  const G = D.gridTotal, al = D.alphas, be = D.betas;
+  // null（溢出区）填充：Li 版用 gMax 立墙呈现悬崖；插值版沿用行末延伸
+  let gMin = Infinity, gMax = -Infinity;
+  for (const row of G) for (const v of row) { if (v == null) continue; gMin = Math.min(gMin, v); gMax = Math.max(gMax, v); }
+  for (let j = 0; j < G.length; j++) {
+    let last = G[j][0];
+    for (let i = 0; i < G[j].length; i++) {
+      if (G[j][i] == null) G[j][i] = KIND === 'li' ? gMax : last; else last = G[j][i];
+    }
+  }
+  const span = gMax - gMin || 1;
+
+  // 双线性细化 3×（121×75 网格，视觉平滑）
+  const SUB = 3, NA = (al.length - 1) * SUB + 1, NB = (be.length - 1) * SUB + 1;
+  function sample(a01, b01) {   // a01/b01 ∈ [0,1]
+    const fa = a01 * (al.length - 1), fb = b01 * (be.length - 1);
+    const ia = Math.min(al.length - 2, fa | 0), ib = Math.min(be.length - 2, fb | 0);
+    const ta = fa - ia, tb = fb - ib;
+    const v00 = G[ib][ia], v01 = G[ib][ia + 1], v10 = G[ib + 1][ia], v11 = G[ib + 1][ia + 1];
+    return (v00 * (1 - ta) + v01 * ta) * (1 - tb) + (v10 * (1 - ta) + v11 * ta) * tb;
+  }
+  function cmap(v) {
+    const t = Math.max(0, Math.min(1, (v - gMin) / span));
+    const stops = [[15,30,90],[32,120,160],[80,190,140],[230,200,80],[220,80,60]];
+    const s = t * (stops.length - 1), i = Math.min(stops.length - 2, s | 0), f = s - i;
+    const c0 = stops[i], c1 = stops[i + 1];
+    return [c0[0] + (c1[0] - c0[0]) * f, c0[1] + (c1[1] - c0[1]) * f, c0[2] + (c1[2] - c0[2]) * f];
+  }
+
+  // ---------- 场景 ----------
+  const W = () => document.getElementById('view').clientWidth, H = () => document.getElementById('view').clientHeight;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(W(), H());
+  document.getElementById('view').appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0f14);
+  scene.fog = new THREE.Fog(0x0b0f14, 80, 260);
+  const camera = new THREE.PerspectiveCamera(50, W() / H(), 0.1, 1000);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.autoRotate = true; controls.autoRotateSpeed = 1.1;
+
+  // 尺寸映射：x=α ∈ [-60,60]，z=β ∈ [-40,40]，y=损失高度 [0,42]
+  const SX = 120, SZ = 80, SY = 42;
+  const X = a01 => (a01 - 0.5) * SX;
+  const Z = b01 => (b01 - 0.5) * SZ;
+  const Y = v => (v - gMin) / span * SY;
+
+  // 表面网格
+  const geo = new THREE.PlaneGeometry(SX, SZ, NA - 1, NB - 1);
+  geo.rotateX(-Math.PI / 2);   // 平面躺平：x→x, 原y→z
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  let k = 0;
+  for (let jb = 0; jb < NB; jb++) {
+    for (let ia = 0; ia < NA; ia++) {
+      const a01 = ia / (NA - 1), b01 = jb / (NB - 1);
+      const v = sample(a01, b01);
+      pos.setZ(k, -Z(b01));          // PlaneGeometry 的行序对应 -z 方向
+      pos.setY(k, Y(v));
+      const [r, g, b] = cmap(v);
+      colors[k * 3] = r / 255; colors[k * 3 + 1] = g / 255; colors[k * 3 + 2] = b / 255;
+      k++;
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 55, specular: 0x333333, side: THREE.DoubleSide });
+  const surf = new THREE.Mesh(geo, mat);
+  scene.add(surf);
+  const wire = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: 0x4fd1a5, wireframe: true, transparent: true, opacity: 0.0 }));
+  scene.add(wire);
+
+  // 光照
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.65); dl.position.set(60, 90, 40); scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x88aaff, 0.25); dl2.position.set(-50, 40, -60); scene.add(dl2);
+
+  // 训练轨迹线（仅插值版：β=0 截面沿 α 扫描）
+  if (KIND !== 'li') {
+    const trajPts = D.curve.map(p => new THREE.Vector3(X((p.a - al[0]) / (al[al.length - 1] - al[0])), Y(p.total) + 0.35, 0));
+    const trajGeo = new THREE.BufferGeometry().setFromPoints(trajPts);
+    scene.add(new THREE.Line(trajGeo, new THREE.LineBasicMaterial({ color: 0x4fd1a5, linewidth: 2 })));
+    // 轨迹投影阴影线（贴地）
+    const shadowPts = trajPts.map(p => new THREE.Vector3(p.x, 0.05, p.z));
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(shadowPts), new THREE.LineBasicMaterial({ color: 0x2a5a4a, transparent: true, opacity: 0.7 })));
+  }
+
+  // 标记球（通用）：任意 (a01,b01) 落点
+  function markerAt(a01, b01, color, label, lift = 0.4) {
+    const v = sample(a01, b01);
+    const g = new THREE.SphereGeometry(1.35, 20, 20);
+    const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.45 }));
+    m.position.set(X(a01), Y(v) + lift, (0.5 - b01) * SZ);
+    scene.add(m);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(label, color), transparent: true }));
+    sprite.scale.set(11, 5.5, 1);
+    sprite.position.set(m.position.x, m.position.y + 5, m.position.z);
+    scene.add(sprite);
+    return m;
+  }
+  function makeLabel(text, color) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const ctx = cv.getContext('2d');
+    ctx.font = 'bold 64px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#' + new THREE.Color(color).getHexString();
+    ctx.fillText(text, 128, 64);
+    const t = new THREE.CanvasTexture(cv); return t;
+  }
+  const a0 = (0 - al[0]) / (al[al.length - 1] - al[0]);
+  const a1 = (1 - al[0]) / (al[al.length - 1] - al[0]);
+  const minP = D.curve ? D.curve.reduce((m, p) => p.total < m.total ? p : m, D.curve[0]) : null;
+  const am = minP ? (minP.a - al[0]) / (al[al.length - 1] - al[0]) : 0;
+  if (KIND === 'li') {
+    // θ* 中心 + 切片局部特征标注（min=绿 / saddle=橙 / max=红）
+    markerAt(0.5, 0.5, 0x5aa7e8, 'θ*=' + D.meta.ref + ' (切片极小)');
+    const A2 = (a) => (a - al[0]) / (al[al.length - 1] - al[0]);
+    const B2 = (b) => (b - be[0]) / (be[be.length - 1] - be[0]);
+    const COLS = { min: 0x4fd1a5, saddle: 0xe8963c, max: 0xe85a4a };
+    for (const an of (D.annotations || [])) {
+      if (an.type === 'min' && Math.abs(an.a) < 1e-6 && Math.abs(an.b) < 1e-6) continue;  // 中心已标
+      markerAt(A2(an.a), B2(an.b), COLS[an.type], an.type + ' ' + an.a.toFixed(2) + ',' + an.b.toFixed(2));
+    }
+  } else {
+    markerAt(a0, 0.5, 0x5aa7e8, 'A=' + D.meta.snapA);
+    markerAt(a1, 0.5, 0xe86a5a, 'B=' + D.meta.snapB);
+    markerAt(am, 0.5, 0xf0d060, '谷底 α=' + minP.a);
+  }
+
+  // 底座网格
+  const grid = new THREE.GridHelper(Math.max(SX, SZ) * 1.15, 24, 0x223038, 0x182128);
+  grid.position.y = -0.05; scene.add(grid);
+
+  // 相机初始视角
+  function resetCam() {
+    camera.position.set(78, 62, 92);
+    camera.lookAt(0, 12, 0);
+    controls.target.set(0, 12, 0);
+  }
+  resetCam();
+
+  // 按钮交互
+  let wireOn = false, rotateOn = true;
+  document.getElementById('btnWire').onclick = () => {
+    wireOn = !wireOn;
+    wire.material.opacity = wireOn ? 0.35 : 0.0;
+    mat.opacity = wireOn ? 0.35 : 1.0; mat.transparent = wireOn;
+  };
+  document.getElementById('btnRotate').onclick = (e) => {
+    rotateOn = !rotateOn; controls.autoRotate = rotateOn;
+    e.target.textContent = rotateOn ? '自动旋转' : '已暂停';
+  };
+  document.getElementById('btnReset').onclick = resetCam;
+
+  window.addEventListener('resize', () => {
+    camera.aspect = W() / H(); camera.updateProjectionMatrix();
+    renderer.setSize(W(), H());
+  });
+
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+  window.__renderOK = { tris: geo.attributes.position.count / 3 | 0 };
+})();
+</script>
+</body>
+</html>
