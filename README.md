@@ -51,18 +51,12 @@ node server/server.js
 
 `winui/` 提供一个 WinUI 3 + WebView2 的桌面封装：启动时自动拉起 `server/server.js`（Node），窗口内加载对弈前端，关闭时自动回收服务进程。若仓库里找不到 `server/server.js`，壳会退化为纯浏览器模式，连接已在外部启动的服务。
 
-构建（WinUI 3 需要 VS UWP 打包组件，纯 dotnet CLI 无法完成资源打包）：
-
-```bat
-:: 一次性环境准备（管理员，给已装的 VS Build Tools 补 UWP 组件）
-"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" --add Microsoft.VisualStudio.Workload.UniversalBuildTools --includeRecommended --norestart
-
-:: 构建 + 运行
+```bash
 dotnet build winui/Chess10d.csproj -c Release -p:Platform=x64
 winui\bin\x64\Release\net8.0-windows10.0.19041.0\Chess10d.exe
 ```
 
-依赖 .NET 8 SDK 与 Windows 10 19041+（WebView2 运行时 Windows 11 自带）。
+依赖 .NET 8 SDK 构建、Windows 10 19041+ 运行（WebView2 运行时 Windows 11 自带）。PRI 打包走 `Microsoft.Windows.SDK.BuildTools` 包内工具链（`EnableMsixTooling`），无需 Visual Studio。
 
 ## 对战评测
 
