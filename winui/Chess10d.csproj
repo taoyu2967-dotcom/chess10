@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Chess10d</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 未打包部署：无需 MSIX 签名，直接跑 exe -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- 构建要求：VS 2022 Build Tools + UWP 打包组件（WinUI 3 的硬性要求，纯 dotnet build 缺 AppxPackage 任务会报 MSB4062）。
+         一次性安装（管理员）：
+           "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify ^
+             --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
+             --add Microsoft.VisualStudio.Workload.UniversalBuildTools --includeRecommended --norestart
+         之后构建（任选其一）：
+           dotnet build Chess10d.csproj -c Release -p:Platform=x64
+           msbuild Chess10d.csproj /restore /p:Configuration=Release /p:Platform=x64 -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240923002" />
+  </ItemGroup>
+</Project>

@@ -7,8 +7,8 @@
 **chess10d** 是在 Fairy-Stockfish `variants.ini` 中定义的 10×10 国际象棋变体（含自定义棋子 `d` 与扩展规则，走法详见 [`fsf/variants.ini`](fsf/variants.ini)）。本仓库包含围绕它构建的完整套件：
 
 - **训练管线**：Fairy-Stockfish 教师蒸馏 + GPU 自对弈（MCTS）→ PyTorch CUDA 训练 → 门禁核验 → 权重转正
-- **推理后端**：OpenCL GPU（RTX/普通显卡）、OpenVINO NPU（Intel AI Boost，双池路由）、纯 JS CPU 回退
-- **对弈界面**：单文件网页前端 [`chess10.html`](chess10.html)，支持服务器 MCTS 引擎与浏览器本地 stockfish.js
+- **两个推理后端**：OpenCL GPU（默认）/ OpenVINO（NPU，双池路由）+ 纯 JS CPU 兜底
+- **对弈界面**：单文件网页前端 [`chess10.html`](chess10.html)，接入服务器 MCTS 引擎或浏览器本地 stockfish.js；另附 WinUI 3 桌面壳
 - **对战评测工具**：任意两套权重自动化对战（执先轮换、开局随机化、比分统计）
 
 ## 预训练模型（Pretrained Models）
@@ -30,15 +30,39 @@
 # 1. 准备权重：从 weights/ 选一个复制为服务端生产权重
 cp weights/BJ1_r208_v3.bin server/weights_ov.bin
 
-# 2. 启动服务（默认 OpenCL GPU 后端；无 GPU 自动 CPU 回退）
+# 2. 启动服务
 node server/server.js
 
 # 3. 浏览器打开
 #    http://127.0.0.1:8787/chess10.html
 ```
 
-- 引擎选项：界面内可切换 **MCTS（GPU 池）** / **MCTS-NPU（NPU 池，需 Intel NPU + OpenVINO，`CHESS10_BACKEND=openvino`）** / 浏览器本地 stockfish.js
-- NPU 后端说明：NPU 走 fp16 并自带精度门禁（value≤0.05 / policy≤3.0 / top1≥99%），不过门禁自动降级回 GPU
+## 推理后端
+
+| 后端 | 设备 | 启用方式 | 说明 |
+|---|---|---|---|
+| **OpenCL GPU**（默认） | NVIDIA / AMD / Intel GPU | 开箱即用 | fp32，MCTS 批推理（`opencl-raub`） |
+| **OpenVINO** | Intel NPU / Arc iGPU / CPU | `CHESS10_BACKEND=openvino` | fp16 + 精度门禁（value≤0.05 / policy≤3.0 / top1≥99%，不过门禁自动降级）；`CHESS10_NPU_WORKERS` 控制 NPU 池大小，与 GPU 池双池并行路由 |
+| **JS CPU**（兜底） | 任意 CPU | 无 GPU 时自动 | 纯 JS 前向，保证零依赖可跑 |
+
+前端界面内可切换：**MCTS（OpenCL GPU 池）** / **MCTS-NPU（OpenVINO 池）** / **本地引擎**（浏览器内 stockfish.js，无需服务端）。
+
+## 桌面壳（WinUI 3）
+
+`winui/` 提供一个 WinUI 3 + WebView2 的桌面封装：启动时自动拉起 `server/server.js`（Node），窗口内加载对弈前端，关闭时自动回收服务进程。若仓库里找不到 `server/server.js`，壳会退化为纯浏览器模式，连接已在外部启动的服务。
+
+构建（WinUI 3 需要 VS UWP 打包组件，纯 dotnet CLI 无法完成资源打包）：
+
+```bat
+:: 一次性环境准备（管理员，给已装的 VS Build Tools 补 UWP 组件）
+"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" --add Microsoft.VisualStudio.Workload.UniversalBuildTools --includeRecommended --norestart
+
+:: 构建 + 运行
+dotnet build winui/Chess10d.csproj -c Release -p:Platform=x64
+winui\bin\x64\Release\net8.0-windows10.0.19041.0\Chess10d.exe
+```
+
+依赖 .NET 8 SDK 与 Windows 10 19041+（WebView2 运行时 Windows 11 自带）。
 
 ## 对战评测
 
@@ -72,7 +96,8 @@ training/               # 本地守护进程、数据治理、损失面可视化
 cloud/                  # 云端无人值守训练循环与产物取回脚本
 fsf/variants.ini        # chess10d 变体定义（Fairy-Stockfish）
 weights/                # 预训练模型（见上表）
-lib/                    # 浏览器本地引擎 (stockfish.js) 与 chess.min.js
+lib/                    # 前端依赖库（浏览器本地引擎 stockfish.js、chess.min.js）
+winui/                  # WinUI 3 + WebView2 桌面壳（自动拉起/回收 node 服务端）
 单文件版/                # 早期 v1 单文件打包（遗留，不与新权重兼容）
 ```
 

@@ -20,6 +20,10 @@ __pycache__/
 .DS_Store
 .mimosa/
 
+# ---- WinUI 构建产物 ----
+bin/
+obj/
+
 # ---- FSF 二进制（GPL，官方下载；只保留变体定义）----
 fsf/*
 !fsf/variants.ini
@@ -29,6 +33,11 @@ bf_league_card/
 
 # ---- 内部审计档案（不上库，本地存档）----
 SECURITY.md
+
+# ---- 本地推送工具（不上库）----
+cloud/push.sh
+cloud/push.bat
+cloud/push_message.txt
 
 # ---- 单文件版的历史权重（代码保留，权重不入库）----
 单文件版/*.bin
