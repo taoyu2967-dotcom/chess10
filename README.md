@@ -1,55 +1,81 @@
-# chess10 — 10×10 国际象棋（chess10d）训练项目
+# chess10d — 10×10 国际象棋变体训练与对弈套件
 
-> 状态速览更新于 2026-09-12 15:25。深度文档见文末索引。
-> 开源许可：**GPL-3.0**（`lib/stockfish.js` 为 GPL 组件，随仓库分发；见 LICENSE）。
+> AlphaZero 风格自研训练管线 + GPU/NPU/CPU 三后端推理 + 网页对弈界面
 
-## 当前血统
+![License](https://img.shields.io/badge/license-GPL--3.0-blue) ![Node](https://img.shields.io/badge/node-%E2%89%A518-green) ![GPU](https://img.shields.io/badge/GPU-OpenCL%E5%8F%AF%E9%80%89-orange)
 
-| 代号 | 来源 | 架构 | 终态 |
-|---|---|---|---|
-| **BJ-1（北京一号）** | AutoDL 云端（北京A区，2080Ti） | v3（3,300,245 floats，ARCH_FLAGS 入权重） | r208 转正，共 168 快照 |
-| **R160** | 本地 5070 训练 | v2（3,033,545 floats） | r160 终态，已停机 |
+**chess10d** 是在 Fairy-Stockfish `variants.ini` 中定义的 10×10 国际象棋变体（含自定义棋子 `d` 与扩展规则，走法详见 [`fsf/variants.ini`](fsf/variants.ini)）。本仓库包含围绕它构建的完整套件：
 
-**对战认证（2026-09-12 凌晨）**：BJ-1(r077) vs R160，6 局 250 sims/步、前 8 步开局随机化——**BJ-1 2 胜 4 和 0 负**，两胜均执黑将杀（24/78 步）。工具：`server/match_bj1_vs_r160.js` + `server/match_worker.js`（双 worker 各持权重独立 GPU 上下文；⚠️ NEWOK 应答必须消费否则队列死锁；⚠️ 温度 0 全确定会把同色局下成逐字重演，必须开局随机化）。
+- **训练管线**：Fairy-Stockfish 教师蒸馏 + GPU 自对弈（MCTS）→ PyTorch CUDA 训练 → 门禁核验 → 权重转正
+- **推理后端**：OpenCL GPU（RTX/普通显卡）、OpenVINO NPU（Intel AI Boost，双池路由）、纯 JS CPU 回退
+- **对弈界面**：单文件网页前端 [`chess10.html`](chess10.html)，支持服务器 MCTS 引擎与浏览器本地 stockfish.js
+- **对战评测工具**：任意两套权重自动化对战（执先轮换、开局随机化、比分统计）
 
-## 云端训练线（AutoDL）
+## 预训练模型（Pretrained Models）
 
-- 实例：北京A区 357 机，12 核 8255C + RTX 2080 Ti，包年包月。
-- **2026-09-12 15:26 到期未续费 → 关机**；数据保留 15 天（约至 09-27），续费开机即可恢复。
-- 循环：`loop.sh`（FSF 教师蒸馏 120 局/轮 + 4 epoch 训练 + 门禁转正）+ `az_loop.sh`（GPU 自对弈混入，AZ_CAP=2000/轮），cwd `/root/autodl-tmp/chess`。
-- **恢复命令**（续费开机后）：
-  ```bash
-  cd /root/autodl-tmp/chess && nohup bash loop.sh >> logs/loop_boot.log 2>&1 &
-  cd /root/autodl-tmp/chess && nohup bash az_loop.sh >> logs/az_boot.log 2>&1 &
-  ```
-- ISA：官方 v14 LB 构建 + `vnni512`（+1.0%，Nodes searched 全等验证后上线；官方 bmi2 备份在位）。
+权重为自定义二进制格式（float32 数组），v1/v2/v3 三代布局均可在运行时自动识别加载（含尾部 ARCH_FLAGS 校验）。
 
-## ⚠️ 训练健康：门禁连续拦截（关机前最新状态）
+| 文件 | 架构 | 参数量 (floats) | 训练来源 | 说明 |
+|---|---|---|---|---|
+| [`weights/BJ1_r208_v3.bin`](weights/BJ1_r208_v3.bin) | v3 | 3,300,245 | 云端 RTX 2080 Ti（r001–r208 蒸馏+自对弈混训） | **当前最强**。r077 版本对 R160 六局 2 胜 4 和 0 负（两胜执黑将杀） |
+| [`weights/R160_v2.bin`](weights/R160_v2.bin) | v2 | 3,033,545 | 本地 RTX 5070（r140–r160） | 本地训练线 v2 架构终态 |
+| [`weights/v3_arm0_local.bin`](weights/v3_arm0_local.bin) | v3 | 3,300,245 | 本地 RTX 5070（v3 迁移基线） | 仅含 policy 编码修复的对照基线（arm0） |
+| [`weights/v1_legacy_local.bin`](weights/v1_legacy_local.bin) | v1 | 2,834,213 | 本地 GPU 基线时代 | 早期 v1 架构遗留权重 |
 
-白优探针一路下行 1.313 → 0.601 → **0.108（r210，已跌破 0.15 门禁线）**；r209、r210 连续两轮未转正（此前 r206 也失败）。门禁行为正确（作废轮次、保留旧权重），但意味着 value 头在向"和棋/低分"方向漂移，疑似与 AZ 混入数据 z=0（和棋标签）占比及截断局启发式标签有关。**续费恢复训练前建议先处理**：复核探针口径 / 调 AZ_CAP / 排查 value 标签分布，否则循环会持续空转烧卡。
+> 架构演进：v2 引入 MANO 窗口注意力/GRN/rpb 主干；v3 修复 policy 编码非单射缺陷（POLICY_CH 100→160：基础走法 0–99、马连跳 100–131、升变 132–146、兜底 147），并把架构开关（ARCH_FLAGS）写进权重尾部，保证 JS / PyTorch / GPU 三实现不漂移。三实现对拍：JS↔PyTorch max|Δ|=1.3e-6，GPU↔CPU 7.6e-6。详见 [`server/tools/v3_contract.md`](server/tools/v3_contract.md)。
 
-## 本地产物（`cloud_pull/`）
+## 快速开始（对弈）
 
-- `server/weights_ov.bin`：最新转正权重（sha256 逐次校验）；15:00 定时取回已落地 e59e3db0…（≈r208）。
-- `snapshots/`：r001–r208 中全部成功轮快照（含关机前抢拉的 r204/205/207/208）。
-- `BJ1/`：取回进程结束后自动打包 `chess10d_v3_BJ1_rNNN.bin` + 血统 README。
-- 取回入口：`cloud/pull_results.sh`（幂等；计划任务 `chess10_pull_0312` 已于 15:00 触发完毕，`C:\Users\glowlake\chess10_waiter_1500.sh` 为其等待进程）。
+```bash
+# 1. 准备权重：从 weights/ 选一个复制为服务端生产权重
+cp weights/BJ1_r208_v3.bin server/weights_ov.bin
 
-## 2026-09-11~12 已验证的关键修复
+# 2. 启动服务（默认 OpenCL GPU 后端；无 GPU 自动 CPU 回退）
+node server/server.js
 
-1. **教师脚本 750ms 固定睡眠 → 事件驱动**：bestmove 实测 153ms 到达，改 stdout 唤醒 + 超时兜底 + stop 后清缓冲。教师 24.8 分 → 5 分 37 秒（**4.4×**），整轮 ~6.5 分钟。
-2. **mcts.js GPU 上传鸡生蛋死锁**：`loadWeights` 依赖 `isReady()`（需 weightsGPU）而 selfplay_gen 只 init 不 upload → 静默 CPU 回退。`gpu.js` 增 `hasContext()` 修复，自对弈实测 GPU 47–50%。
-3. **路径可移植化**：FSF/权重路径支持 `CHESS10_*` 环境变量 + 平台感知（Linux 云端可跑）。
-4. **`pull_results.sh` 权重漏更 bug**：v3 权重每轮内容变但尺寸恒 13,200,980 字节，"按大小跳过"永远漏更 → 改每次必重下 + sha256 门禁。
+# 3. 浏览器打开
+#    http://127.0.0.1:8787/chess10.html
+```
 
-## 已知问题
+- 引擎选项：界面内可切换 **MCTS（GPU 池）** / **MCTS-NPU（NPU 池，需 Intel NPU + OpenVINO，`CHESS10_BACKEND=openvino`）** / 浏览器本地 stockfish.js
+- NPU 后端说明：NPU 走 fp16 并自带精度门禁（value≤0.05 / policy≤3.0 / top1≥99%），不过门禁自动降级回 GPU
 
-- `单文件版/`（chess10_server.js + chess10.html）为 v1 编码，被 `housekeeping.js` 的 `V2_FROZEN=true` **故意冻结**，不可与新权重混用；主前端 `chess10.html` 为 Magic V2 + NPU 选项（`mcts-npu` 双池路由），不受影响。
-- 本地守护 09-02 停机于 r160（终态）；恢复 = 删 `training/STOP.flag` + `training/start_daemon.ps1`。
-- v3 遗留测试夹具问题（与生产无关）见 `server/tools/v3_contract.md` §6。
+## 对战评测
 
-## 文档索引
+```bash
+node server/match_bj1_vs_r160.js 6 250
+```
 
-- v3 架构契约与验收证据：`server/tools/v3_contract.md`
-- 模型规格演进（v1→v2→v3）：见 ZCode 记忆 `chess10-model-architecture`
-- 云端部署/取回/ISA 实测全记录：见 ZCode 记忆 `chess10-cloud-training-plan`
+双进程各持一套权重（独立 GPU 上下文），250 sims/步，前 8 步温度 1.0 开局随机化，300 步截断判和。改文件头部 `W_BJ1` / `W_R160` 两个路径即可换成任意两套权重对战。
+
+## 训练
+
+训练管线分三条数据线，每轮数据汇总后由 [`ov_train/torch_ov_train.py`](ov_train/torch_ov_train.py) 训练，经探针门禁 + `verify_weights.js` 双核验才转正：
+
+| 环节 | 入口 | 说明 |
+|---|---|---|
+| 教师蒸馏 | `server/selfplay_fsf_teacher.js` | Fairy-Stockfish v14（大棋盘构建）MultiPV 走子做策略蒸馏，事件驱动 UCI（bestmove 到达即续） |
+| 自对弈 | `server/selfplay_gen.js` | MCTS 自对弈（OpenCL GPU 批推理），产 sp*_encs/pis/zs 三元组 |
+| 训练 | `ov_train/torch_ov_train.py` | CUDA，环境变量 `CHESS10_W_IN/W_OUT` 控制输出，`CHESS10_AZ_DIR/AZ_CAP` 混入自对弈数据 |
+| 云端一键循环 | `cloud/loop.sh` + `cloud/az_loop.sh` | Linux 无人值守：每轮教师 120 局 → 训练 4 epoch → 门禁 → 转正+快照 |
+
+**依赖**：Node ≥18；可选 CUDA（PyTorch）与 OpenCL（`opencl-raub`）；教师引擎需自备 [Fairy-Stockfish](https://github.com/fairy-stockfish/Fairy-Stockfish) v14 大棋盘构建（变体定义已含于 `fsf/variants.ini`，二进制不入库）。
+
+## 仓库结构
+
+```
+chess10.html            # 网页对弈前端（单文件，含 Magic V2 UI）
+server/                 # 引擎、MCTS、GPU(OpenCL)/NPU(OpenVINO) 后端、蒸馏与自对弈
+  tools/                # 对拍测试、对战工具、架构契约文档 (v2/v3_contract.md)
+ov_train/               # PyTorch 训练器与架构定义 (az_model.py)
+training/               # 本地守护进程、数据治理、损失面可视化
+cloud/                  # 云端无人值守训练循环与产物取回脚本
+fsf/variants.ini        # chess10d 变体定义（Fairy-Stockfish）
+weights/                # 预训练模型（见上表）
+lib/                    # 浏览器本地引擎 (stockfish.js) 与 chess.min.js
+单文件版/                # 早期 v1 单文件打包（遗留，不与新权重兼容）
+```
+
+## License
+
+[GPL-3.0](LICENSE)。`lib/stockfish.js` 为 GPL-3.0 组件（Stockfish 的 WASM 构建），随仓库一并分发。

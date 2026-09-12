@@ -11,6 +11,7 @@ logs/
 *.f32
 *.blob
 *.bin
+!weights/*.bin
 *.npz
 *.lock
 STOP.flag
