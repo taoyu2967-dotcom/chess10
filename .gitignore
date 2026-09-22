@@ -34,6 +34,9 @@ bf_league_card/
 # ---- 内部审计档案（不上库，本地存档）----
 SECURITY.md
 
+# ---- 架构现代化退役区（2026-09-23：单文件版/archive/死代码移出仓库，本地留档）----
+_legacy/
+
 # ---- 本地推送工具（不上库）----
 cloud/push.sh
 cloud/push.bat

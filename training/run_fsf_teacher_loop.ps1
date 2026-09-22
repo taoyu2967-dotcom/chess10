@@ -1,13 +1,13 @@
 ﻿# FSF teacher training loop v3 (persistent, pure-ASCII source to survive PS5.1 ANSI parsing)
 # Chinese path segment is built from codepoints: 新建文件夹
-$CN = -join @([char]0x65B0, [char]0x5EFA, [char]0x6587, [char]0x4EF6, [char]0x5939)
 $Hours = 4.5; if ($env:CHESS10_FSFHOURS)  { $Hours = [double]$env:CHESS10_FSFHOURS }
 $GAMES = 120; if ($env:CHESS10_FSFGAMES)  { $GAMES = [int]$env:CHESS10_FSFGAMES }
 $MT = 150;    if ($env:CHESS10_FSFMT)     { $MT = [int]$env:CHESS10_FSFMT }
 $EPS = 4;     if ($env:CHESS10_FSFEPOCHS) { $EPS = [int]$env:CHESS10_FSFEPOCHS }
 $START_ROUND = 60
 $ErrorActionPreference = 'Continue'
-$BASE      = "D:\data\$CN\chess_game"
+# Path hub convention (2026-09-23): repo root from script location; CHESS10_ROOT env wins.
+$BASE      = if ($env:CHESS10_ROOT) { $env:CHESS10_ROOT } else { Split-Path -Parent $PSScriptRoot }
 $serverDir = Join-Path $BASE 'server'
 $dataDir   = Join-Path $BASE 'training\data'
 $ovDir     = Join-Path $BASE 'ov_train'

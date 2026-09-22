@@ -14,8 +14,8 @@
 
 $MINROUND = 140
 
-$CN   = -join @([char]0x65B0,[char]0x5EFA,[char]0x6587,[char]0x4EF6,[char]0x5939)
-$BASE = "D:\data\$CN\chess_game"
+# Path hub convention (2026-09-23): repo root from script location; CHESS10_ROOT env wins.
+$BASE = if ($env:CHESS10_ROOT) { $env:CHESS10_ROOT } else { Split-Path -Parent $PSScriptRoot }
 $DATA = Join-Path $BASE 'training\data'
 $TDIR = Join-Path $BASE 'training'
 $FLAG = Join-Path $BASE 'training\STOP.flag'

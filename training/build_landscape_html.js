@@ -1,7 +1,7 @@
 'use strict';
 // 生成损失地貌 HTML：模板 + JSON 数据内嵌（NaN→null），一次产出全部页面
 const fs = require('fs');
-const T = 'D:/data/新建文件夹/chess_game/training';
+const T = require('path').join(require('../server/paths').TRAINING);
 function build(jsonFile, out) {
   const data = fs.readFileSync(T + '/data/' + jsonFile, 'utf8').replace(/\bNaN\b/g, 'null');
   JSON.parse(data); // 校验

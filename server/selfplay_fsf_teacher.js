@@ -17,10 +17,10 @@ const { moveChannel } = require('./mcts');
 
 const GAMES = parseInt(process.argv[2] || '24', 10);
 const MT = parseInt(process.argv[3] || '150', 10);
-const PREFIX = process.argv[4] || 'C:/Users/glowlake/AppData/Local/Temp/opencode/az_data_ov/r34';
-// FSF 路径：环境变量优先（云端 Linux 用），否则按平台取默认文件名
-const FSF = process.env.CHESS10_FSF
-  || path.join(__dirname, '..', 'fsf', process.platform === 'win32' ? 'fairy-stockfish.exe' : 'fairy-stockfish');
+const paths = require('./paths');
+const PREFIX = process.argv[4] || path.join(paths.TRAINING_DATA, 'fsf_r0');
+// FSF 路径：环境变量优先（云端 Linux 用），否则按平台取默认文件名（paths 中枢统一）
+const FSF = paths.FSF;
 const MAX_MOVES = 200;
 const MULTIPV = 8;
 const FILES = 'abcdefghij';

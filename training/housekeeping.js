@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const BASE = 'D:/data/新建文件夹/chess_game';
+const BASE = require('../server/paths').ROOT;
 const DATA = path.join(BASE, 'training', 'data');
 const LOG = path.join(DATA, 'fsf_teacher_loop.log');
 const REPORT = path.join(DATA, 'daily_report.md');
@@ -39,23 +39,14 @@ try {
 const freeGB = Math.round(require('child_process').execSync(
   'powershell -NoProfile -Command "[math]::Round((Get-PSDrive D).Free/1GB,1)"', { encoding: 'utf8' }).trim() * 10) / 10;
 
-// 单文件版：v2 架构起冻结在 v1 r136（其捆绑的旧引擎不认 v2 权重尾部，不再自动同步）
-const V2_FROZEN = true;
-let syncNote = 'v2 起冻结 r136（单文件版旧引擎）';
-try {
-  if (!V2_FROZEN) {
-    fs.copyFileSync(path.join(BASE, 'server', 'weights_ov.bin'), path.join(BASE, '单文件版', 'weights_ov.bin'));
-    syncNote = 'synced';
-  }
-} catch (e) { syncNote = 'SYNC FAIL: ' + e.message.slice(0, 80); }
+// 单文件版已退役移出仓库（_legacy/，2026-09-23 架构现代化），不再有同步逻辑
 
 const stopFlag = fs.existsSync(path.join(BASE, 'training', 'STOP.flag'));
 const entry = [
   `## ${day}`,
   `- 轮次: SP ${rounds} / 转正 ${doneCnt} / 失败 ${fails} (GATE FAIL ${gateFails})`,
   `- 最新探针(初始/白优/中局): ${lastProbe || 'n/a'}`,
-  `- 核验: ${verifyLine}`,
-  `- 单文件版: ${syncNote}${stopFlag ? '；⚠️ STOP.flag 在位（用户已停用）' : ''}`,
+  `- 核验: ${verifyLine}${stopFlag ? '；⚠️ STOP.flag 在位（用户已停用）' : ''}`,
   `- D盘剩余: ${freeGB} GB${freeGB < 30 ? ' ⚠️ 低于30GB，请人工清理' : ''}`,
   '',
 ].join('\n');

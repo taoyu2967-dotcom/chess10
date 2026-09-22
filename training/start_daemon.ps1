@@ -1,7 +1,7 @@
-# daemon launcher (ASCII source; Chinese path segment via codepoints)
+# daemon launcher (pure ASCII source)
 # usage: powershell -NoProfile -ExecutionPolicy Bypass -File start_daemon.ps1
-$CN   = -join @([char]0x65B0,[char]0x5EFA,[char]0x6587,[char]0x4EF6,[char]0x5939)
-$T    = "D:\data\$CN\chess_game\training"
+# Path hub convention (2026-09-23): training dir from script location; CHESS10_ROOT env wins.
+$T    = if ($env:CHESS10_ROOT) { Join-Path $env:CHESS10_ROOT 'training' } else { $PSScriptRoot }
 $PIDF = Join-Path $T 'data\daemon.pid'
 # already running?
 if (Test-Path -LiteralPath $PIDF) {

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-SERVER = 'D:/data/新建文件夹/chess_game/server'
+SERVER = os.path.join(os.environ.get('CHESS10_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'server')
 C_IN, C_HID, RES_BLOCKS, HEADS, D_MODEL, D_FF, PCH, N_POS = 24, 128, 6, 4, 128, 256, 100, 100
 HD = D_MODEL // HEADS
 

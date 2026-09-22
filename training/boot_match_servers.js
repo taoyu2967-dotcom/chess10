@@ -4,7 +4,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const BASE = 'D:/data/新建文件夹/chess_game/server';
+const BASE = require('../server/paths').SERVER;
 const baseline = process.argv[2] || 'weights.bin';
 
 function boot(port, env) {

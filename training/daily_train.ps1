@@ -9,8 +9,8 @@
 #   * GPU self-heal: node gpu require check; on fail run tools\restore_gpu_stack.js once per round
 #   * auto round numbering: max(r*_encs.f32)+1 at start
 #   * data rotation: keep newest 6 rounds; snapshots keep newest 40
-$CN   = -join @([char]0x65B0,[char]0x5EFA,[char]0x6587,[char]0x4EF6,[char]0x5939)
-$BASE = "D:\data\$CN\chess_game"
+# Path hub convention (2026-09-23): repo root derived from script location; CHESS10_ROOT env wins.
+$BASE = if ($env:CHESS10_ROOT) { $env:CHESS10_ROOT } else { Split-Path -Parent $PSScriptRoot }
 $SRV  = Join-Path $BASE 'server'
 $DATA = Join-Path $BASE 'training\data'
 $OVT  = Join-Path $BASE 'ov_train'

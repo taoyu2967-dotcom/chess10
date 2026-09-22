@@ -4,7 +4,7 @@
 // 退出码：0=GPU 恢复，1=仍失败
 const { execSync } = require('child_process');
 const path = require('path');
-const SERVER = 'D:/data/新建文件夹/chess_game/server';
+const SERVER = require('../paths').SERVER;
 const NM = path.join(SERVER, 'node_modules');
 
 function run(cmd, cwd, timeoutMs) {

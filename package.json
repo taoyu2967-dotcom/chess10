@@ -1,0 +1,12 @@
+{
+  "name": "chess10d",
+  "version": "1.0.0",
+  "private": true,
+  "description": "10x10 chess variant (chess10d): AlphaZero-style training suite + tri-backend inference (OpenCL GPU / OpenVINO NPU / JS CPU) + web & WinUI play UI",
+  "scripts": {
+    "serve": "node server/server.js",
+    "test": "node tests/run_all.js",
+    "test:quick": "node tests/run_all.js --quick",
+    "verify": "node server/verify_weights.js"
+  }
+}

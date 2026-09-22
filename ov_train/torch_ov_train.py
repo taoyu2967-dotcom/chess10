@@ -37,8 +37,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from az_model import (build_net, Head, load_weights_bin, save_weights_bin,
                       C_IN, PCH, N_POS, N_ATTN_EXTRA, FrozenBN)
 
-# 数据路径：默认全部走持久盘（Temp 曾多次被系统清理）；可用环境变量覆盖
-BASE = 'D:/data/新建文件夹/chess_game'
+# 可选：手写 CUDA 融合 MANO 注意力（CHESS10_MANO_CUDA=1 启用；需本机 nvcc+MSVC，
+# 对拍门禁 fwd≤1e-3/grad≤1e-2 全过，实测 5070 切片 2.12×、整网 fp32 −4.6%）
+if os.environ.get('CHESS10_MANO_CUDA') == '1':
+    try:
+        from mano_cuda import patch_mano
+        patch_mano()
+        print('[MANO-CUDA] fused kernel patched', flush=True)
+    except Exception as e:
+        print(f'[MANO-CUDA] 不可用，回退 eager: {e}', flush=True)
+
+# 数据路径：路径中枢约定（CHESS10_ROOT 优先，否则本文件上两级=仓库根）
+BASE = os.environ.get('CHESS10_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEACHER = os.environ.get('CHESS10_TEACHER', BASE + '/training/teacher')
 AZOV = os.environ.get('CHESS10_AZOV', BASE + '/training/data')
 SERVER = BASE + '/server'

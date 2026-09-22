@@ -11,7 +11,7 @@ const path = require('path');
 const GAMES = parseInt(process.argv[2] || '4', 10);
 const SIMS = parseInt(process.argv[3] || '250', 10);
 const MOVEMS = parseInt(process.argv[4] || '700', 10);
-const PREFIX = process.argv[5] || 'C:/Users/glowlake/AppData/Local/Temp/opencode/az_data/r0';
+const PREFIX = process.argv[5] || require('path').join(require('./paths').DATA_AZ, 'sp');
 const MAX_MOVES = 200;
 
 fs.mkdirSync(path.dirname(PREFIX), { recursive: true });

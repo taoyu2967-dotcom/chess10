@@ -5,7 +5,7 @@ const vm = require('vm');
 const path = require('path');
 
 // 1) 提取 HTML 内嵌脚本
-const html = fs.readFileSync('D:/data/新建文件夹/chess_game/chess10.html', 'utf8');
+const html = fs.readFileSync(require('../paths').WEB, 'utf8');
 const scriptStart = html.indexOf('<script>') + '<script>'.length;
 const uiMarker = html.indexOf('const $ = id => document.getElementById(id);');
 if (scriptStart < 8 || uiMarker < 0) { console.error('FAIL: 无法定位脚本段'); process.exit(1); }

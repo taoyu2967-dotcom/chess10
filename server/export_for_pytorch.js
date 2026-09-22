@@ -7,7 +7,7 @@ const { moveChannel } = require('./mcts');   // 编码唯一实现（禁止内�
 const fs = require('fs');
 const path = require('path');
 
-const OUT = process.env.CHESS10_TEACHER || 'D:/data/新建文件夹/chess_game/training/teacher';
+const OUT = process.env.CHESS10_TEACHER || require('./paths').TEACHER;
 fs.mkdirSync(OUT, { recursive: true });
 
 const N_POS = parseInt(process.argv[2] || '3000', 10);

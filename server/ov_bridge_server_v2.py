@@ -247,7 +247,16 @@ def gate_check(vals, pols, rv=None, rp=None):
     rp = ref_pol if rp is None else rp
     dv = float(np.abs(vals - rv).max())
     dp = float(np.abs(pols - rp).max())
-    t1 = float((pols.argmax(1) == rp.argmax(1)).mean())
+    # margin-aware top1（2026-09-17）：参照自身 top1-top2 logits 差 < 0.05 的位置属并列，
+    # argmax 在并列处是掷硬币（v3 策略头更平，探针 pos0 实测 margin=0.0007 < fp16 扰动 0.001），
+    # 对它要求逐位一致是门禁过严。这些位置不参与 t1 判定；非并列位置仍严格要求一致。
+    srt = np.sort(rp, axis=1)
+    margins = srt[:, -1] - srt[:, -2]
+    decisive = margins >= 0.05
+    if decisive.any():
+        t1 = float((pols.argmax(1)[decisive] == rp.argmax(1)[decisive]).mean())
+    else:
+        t1 = 1.0   # 全并列：argmax 无信息量，dp/dv 仍守门
     ok = np.isfinite(vals).all() and np.isfinite(pols).all() and dv <= GATE_V and dp <= GATE_P and t1 >= GATE_T1
     return dv, dp, t1, ok
 

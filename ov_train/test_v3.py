@@ -14,7 +14,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import az_model as A
 
-BASE = 'D:/data/新建文件夹/chess_game'
+BASE = os.environ.get('CHESS10_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W = sys.argv[1] if len(sys.argv) > 1 else BASE + '/training/data/snapshots/r160.bin'
 TMP = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_tmp_v3.bin')
 

@@ -19,7 +19,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-SERVER = 'D:/data/新建文件夹/chess_game/server'
+def _repo_root():
+    """路径中枢（Python 侧）：CHESS10_ROOT 优先，否则从本文件向上找仓库锚点（fsf/variants.ini + weights/）。"""
+    import os as _os
+    if _os.environ.get('CHESS10_ROOT'):
+        return _os.path.resolve(_os.environ['CHESS10_ROOT'])
+    d = _os.path.dirname(_os.path.abspath(__file__))
+    for _ in range(6):
+        if _os.path.exists(_os.path.join(d, 'fsf', 'variants.ini')) and _os.path.exists(_os.path.join(d, 'weights')):
+            return d
+        d = _os.path.dirname(d)
+    raise RuntimeError('az_model: 未找到仓库根，请设 CHESS10_ROOT')
+
+import os
+SERVER = os.path.join(_repo_root(), 'server')
 C_IN, C_HID, RES_BLOCKS, HEADS, D_MODEL, D_FF, PCH, N_POS = 24, 128, 6, 4, 128, 256, 160, 100
 HD = D_MODEL // HEADS
 MANO_WINDOW, MANO_LEVELS = 5, 3

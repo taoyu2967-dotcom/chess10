@@ -3,7 +3,7 @@
 const fs = require('fs');
 const vm = require('vm');
 
-const html = fs.readFileSync('D:/data/新建文件夹/chess_game/chess10.html', 'utf8');
+const html = fs.readFileSync(require('../paths').WEB, 'utf8');
 const code = html.slice(html.indexOf('<script>') + 8, html.indexOf('const $ = id => document.getElementById(id);'));
 const sandbox = { console, Math, Date, setTimeout: () => {}, clearTimeout: () => {} };
 vm.createContext(sandbox);

@@ -13,7 +13,7 @@ const MAXMOVES = parseInt(process.argv[4] || '150', 10);
 const TEACHER_MT = parseInt(process.argv[5] || '150', 10);
 const PORT = parseInt(process.argv[6] || '8891', 10);
 const BASE = path.join(__dirname, '..');   // chess_game/server
-const OUTFD = fs.openSync('D:/data/新建文件夹/chess_game/training/data/teacher_match.out', 'w');
+const OUTFD = fs.openSync(path.join(require('../paths').TRAINING_DATA, 'teacher_match.out'), 'w');
 function log(s) { const line = `${new Date().toTimeString().slice(0, 8)} ${s}`; process.stdout.write(line + '\n'); try { fs.writeSync(OUTFD, line + '\n'); } catch {} }
 const START_FEN = 'drnbqkbnrd/pppppppppp/10/10/10/10/10/10/PPPPPPPPPP/DRNBQKBNRD w KQkq - 0 1';
 

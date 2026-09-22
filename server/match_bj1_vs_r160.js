@@ -3,6 +3,7 @@
 // 交替执先；每步固定 sims 预算，双方配置完全一致；截断判和。
 // 用法: node match_bj1_vs_r160.js [局数=6] [sims=250]
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const { Engine } = require('./engine');
 
@@ -10,8 +11,15 @@ const GAMES = parseInt(process.argv[2] || '6', 10);
 const SIMS = parseInt(process.argv[3] || '250', 10);
 const MAX_MOVES = 300;
 const HERE = __dirname;
-const W_BJ1 = 'D:/data/新建文件夹/chess_game/cloud_pull/server/weights_ov.bin';
-const W_R160 = path.join(HERE, 'weights_ov.bin');
+const paths = require('./paths');
+// BJ-1 权重：环境变量 > cloud_pull 最新（本机部署） > 仓库自带 r208；R160：本地生产权重 > 仓库自带
+const W_BJ1 = process.env.CHESS10_W_BJ1
+  || (fs.existsSync(path.join(paths.CLOUD_PULL, 'server', 'weights_ov.bin'))
+      ? path.join(paths.CLOUD_PULL, 'server', 'weights_ov.bin')
+      : path.join(paths.WEIGHTS_DIR, 'BJ1_r208_v3.bin'));
+const W_R160 = fs.existsSync(paths.PROD_WEIGHTS)
+  ? paths.PROD_WEIGHTS
+  : path.join(paths.WEIGHTS_DIR, 'R160_v2.bin');
 
 function startWorker(file, name) {
   const p = spawn(process.execPath, [path.join(HERE, 'match_worker.js'), file, name],

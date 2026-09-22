@@ -6,7 +6,7 @@ SSHOPT="-i $HOME/.ssh/autodl_chess10 -o StrictHostKeyChecking=no -o UserKnownHos
 R=root@region-42.seetacloud.com
 P=47010
 RB=/root/autodl-tmp/chess
-DEST="D:/data/新建文件夹/chess_game/cloud_pull"
+DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/cloud_pull"   # 路径中枢约定：脚本位置推导
 LOG="$DEST/pull.log"
 
 mkdir -p "$DEST/snapshots" "$DEST/server" "$DEST/logs"

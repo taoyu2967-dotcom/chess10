@@ -4,7 +4,7 @@
 const fs = require('fs');
 const vm = require('vm');
 
-const html = fs.readFileSync('D:/data/新建文件夹/chess_game/chess10.html', 'utf8');
+const html = fs.readFileSync(require('../paths').WEB, 'utf8');
 const scriptStart = html.indexOf('<script>') + 8;
 const uiMarker = html.indexOf('const $ = id => document.getElementById(id);');
 const code = html.slice(scriptStart, uiMarker);

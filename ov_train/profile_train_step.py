@@ -13,7 +13,7 @@ import az_model as A
 
 B = int(sys.argv[1]) if len(sys.argv) > 1 else 256
 STEPS = int(sys.argv[2]) if len(sys.argv) > 2 else 20
-BASE = 'D:/data/新建文件夹/chess_game'
+BASE = os.environ.get('CHESS10_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W = os.path.join(BASE, 'server', 'weights_ov.bin')
 
 FORCE_CPU = os.environ.get('CHESS10_FORCE_CPU') == '1'

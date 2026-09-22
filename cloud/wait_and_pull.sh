@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 后台等待到「明天 03:00」再执行取回；日志写在 cloud_pull/waiter.log，便于事后核对
-DEST="D:/data/新建文件夹/chess_game/cloud_pull"
-PULL="D:/data/新建文件夹/chess_game/cloud/pull_results.sh"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # 路径中枢约定：脚本位置推导
+DEST="$ROOT/cloud_pull"
+PULL="$ROOT/cloud/pull_results.sh"
 LOG="$DEST/waiter.log"
 mkdir -p "$DEST"
 

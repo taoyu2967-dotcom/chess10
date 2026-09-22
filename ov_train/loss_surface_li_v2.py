@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BASE = 'D:/data/新建文件夹/chess_game'
+BASE = os.environ.get('CHESS10_ROOT') or os.path.dirname(HERE)   # 路径中枢约定
 SNAP = os.path.join(BASE, 'training', 'data', 'snapshots')
 DATA = os.path.join(BASE, 'training', 'data')
 sys.path.insert(0, HERE)
